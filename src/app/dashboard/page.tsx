@@ -11,6 +11,15 @@ interface Property {
   isActive: boolean;
 }
 
+interface Arrival {
+  id: string;
+  arrival: string | null;
+  departure: string | null;
+  departureUnknown: boolean;
+  status: string;
+  property: { address: string; city: string; client: { name: string } | null };
+}
+
 interface Inspection {
   id: string;
   status: string;
@@ -24,15 +33,18 @@ interface Inspection {
 export default function DashboardPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [arrivals, setArrivals] = useState<Arrival[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/properties').then((r) => r.json()),
       fetch('/api/inspections').then((r) => r.json()),
-    ]).then(([props, insps]) => {
+      fetch('/api/dashboard/arrivals').then((r) => r.json()).catch(() => []),
+    ]).then(([props, insps, arrs]) => {
       setProperties(Array.isArray(props) ? props : []);
       setInspections(Array.isArray(insps) ? insps : []);
+      setArrivals(Array.isArray(arrs) ? arrs : []);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -60,6 +72,31 @@ export default function DashboardPage() {
         <StatCard label="Completed" value={completedInspections} icon="✅" color="green" />
         <StatCard label="Open Issues" value={issueCount} icon="⚠️" color="amber" />
       </div>
+
+      {/* Upcoming Arrivals */}
+      {arrivals.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800">✈️ Upcoming Arrivals & Departures</h2>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {arrivals.slice(0, 5).map((a) => (
+              <div key={a.id} className="px-6 py-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{a.property.address}</p>
+                  <p className="text-xs text-gray-500">
+                    {a.property.client?.name} · {a.arrival || '?'} → {a.departureUnknown ? 'TBD' : (a.departure || '?')}
+                  </p>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  a.status === 'UPCOMING' ? 'bg-blue-100 text-blue-700' :
+                  a.status === 'IN_RESIDENCE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                }`}>{a.status.replace(/_/g, ' ')}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent inspections */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

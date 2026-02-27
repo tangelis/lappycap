@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 interface Client {
   id: string;
@@ -89,7 +90,7 @@ export default function PropertiesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {properties.map((prop) => (
-          <div key={prop.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+          <Link key={prop.id} href={`/dashboard/properties/${prop.id}`} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow block">
             <div className="flex items-start justify-between mb-3">
               <h3 className="font-semibold text-gray-800">{prop.address}</h3>
               <span className={`px-2 py-0.5 rounded-full text-xs ${prop.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -112,7 +113,7 @@ export default function PropertiesPage() {
                 <span className="font-medium">📝 Notes:</span> {prop.specialInstructions}
               </div>
             )}
-          </div>
+          </Link>
         ))}
       </div>
 

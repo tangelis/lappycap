@@ -8,6 +8,7 @@ const navItems = [
   { href: '/dashboard', label: '📊 Dashboard', exact: true },
   { href: '/dashboard/properties', label: '🏠 Properties' },
   { href: '/dashboard/inspections', label: '📋 Inspections' },
+  { href: '/dashboard/routes', label: '🚗 Routes' },
 ];
 
 export default function DashboardLayout({
