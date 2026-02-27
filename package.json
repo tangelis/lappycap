@@ -9,7 +9,15 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@auth/core": "^0.41.0",
+    "@auth/drizzle-adapter": "^1.11.1",
+    "@types/pg": "^8.16.0",
+    "dotenv": "^17.3.1",
+    "drizzle-kit": "^0.31.9",
+    "drizzle-orm": "^0.45.1",
     "next": "16.1.6",
+    "next-auth": "^5.0.0-beta.30",
+    "pg": "^8.19.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
