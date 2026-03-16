@@ -34,3 +34,20 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+---
+
+## Google Cloud Platform (GCP) Deployment
+
+This project is configured for "one-click" automated deployment to Google Cloud Platform using **Terraform** for infrastructure and **Cloud Build** for CI/CD.
+
+A detailed deployment guide, including prerequisites, setup instructions, and security considerations, is available in:
+
+*   **[GCP Deployment Guide](./docs/GCP_DEPLOYMENT.md)**
+
+This guide covers:
+*   Setting up Cloud SQL (PostgreSQL)
+*   Containerizing the application with Docker
+*   Automating builds and deployments via Cloud Build triggers from GitHub
+*   Utilizing Cloud Run for serverless hosting with scale-to-zero capabilities
+*   Security best practices for production hardening.
