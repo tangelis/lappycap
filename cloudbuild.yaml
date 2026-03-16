@@ -1,0 +1,59 @@
+
+steps:
+  # Fetch Cloud SQL Private IP
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: GetDBHost
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        DB_HOST=$(gcloud sql instances describe ${_SERVICE_NAME}-db --project=${PROJECT_ID} --format="value(ipAddresses[0].ipAddress)" --region=${_AR_REGION})
+        echo "_DB_HOST=${DB_HOST}" >> /workspace/env_vars.txt
+    env:
+      - 'HOME=/builder/home'
+
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Build
+    args: ['build', '-t', '${_AR_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_SERVICE_NAME}:${TAG_NAME}', '.']
+    dir: '/workspace/nest-home'
+
+  # Push the Docker image to Google Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push
+    args: ['push', '${_AR_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_SERVICE_NAME}:${TAG_NAME}']
+
+  # Deploy the image to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: Deploy
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image'
+      - '${_AR_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_SERVICE_NAME}:${TAG_NAME}'
+      - '--region'
+      - '${_AR_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated' # For PoC - remove in prod if auth needed
+      - '--port=3100'
+      - '--set-env-vars=DATABASE_URL=postgresql://${_DB_USER}:${_DB_PASSWORD}@$(cat /workspace/env_vars.txt | grep _DB_HOST | cut -d'=' -f2)/${_DB_NAME}'
+      - '--vpc-connector=${_VPC_CONNECTOR_NAME}'
+      - '--ingress=all'
+      - '--min-instances=0'
+      - '--max-instances=1' # For PoC - adjust as needed
+    # Wait for the Cloud Run service to be ready
+    waitFor: ['Push']
+
+images:
+  - '${_AR_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_SERVICE_NAME}:${TAG_NAME}'
+
+substitutions:
+  _AR_REGION: "us-central1" # Default region for Artifact Registry and Cloud Run
+  _AR_REPO_NAME: "nest-home-repo" # Default Artifact Registry repository name
+  _SERVICE_NAME: "nest-home-poc" # Default Cloud Run service name
+  _DB_USER: "nestuser"
+  _DB_NAME: "nesthome"
+  _DB_PASSWORD: "CHANGEME" # IMPORTANT: Replace with secure secret management
+  _VPC_CONNECTOR_NAME: "nest-home-poc-vpc-connector" # Default VPC Connector name
