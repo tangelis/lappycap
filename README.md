@@ -37,17 +37,16 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ---
 
+## Nest-legacy (this repo)
+
+This branch is **nest-legacy**, derived from nest-home v1.5: Next.js, Drizzle, PostgreSQL, NextAuth credentials.
+
+*   **Local development:** See **[deploy/README.md](./deploy/README.md)** for Postgres in Docker, `.env.local`, and running the app.
+*   **GCP deployment:** The **nest-legacy** GCP project runs this app on Cloud Run with Cloud SQL (PostgreSQL). Access is restricted to the org/domain via IAM (`roles/run.invoker`). See **[docs/GCP_DEPLOYMENT.md](./docs/GCP_DEPLOYMENT.md)** for the general GCP guide and **[docs/SECURITY_ASSESSMENT_FOR_REVIEW.md](./docs/SECURITY_ASSESSMENT_FOR_REVIEW.md)** for a security review checklist.
+
 ## Google Cloud Platform (GCP) Deployment
 
-This project is configured for "one-click" automated deployment to Google Cloud Platform using **Terraform** for infrastructure and **Cloud Build** for CI/CD.
+This project can be deployed to GCP using **Terraform** for infrastructure and **Cloud Build** for CI/CD. The **nest-legacy** production deployment uses Cloud Run + Cloud SQL (no Terraform in this repo); IAM is used to restrict invocation to the organization.
 
-A detailed deployment guide, including prerequisites, setup instructions, and security considerations, is available in:
-
-*   **[GCP Deployment Guide](./docs/GCP_DEPLOYMENT.md)**
-
-This guide covers:
-*   Setting up Cloud SQL (PostgreSQL)
-*   Containerizing the application with Docker
-*   Automating builds and deployments via Cloud Build triggers from GitHub
-*   Utilizing Cloud Run for serverless hosting with scale-to-zero capabilities
-*   Security best practices for production hardening.
+*   **[GCP Deployment Guide](./docs/GCP_DEPLOYMENT.md)** — Terraform, Docker, Cloud Build, Cloud Run, Cloud SQL, security considerations.
+*   **[Security assessment checklist](./docs/SECURITY_ASSESSMENT_FOR_REVIEW.md)** — For review by a security-minded reviewer (e.g. premium model or internal audit).

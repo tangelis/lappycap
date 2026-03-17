@@ -1,0 +1,39 @@
+# Full stack: Postgres + app on same network so app reaches DB at postgres:5432.
+# From repo root: podman compose -f deploy/docker-compose.yml up -d
+# Then open http://localhost:3002 and login (ron@nesthome.com / nesthome123).
+
+services:
+  postgres:
+    image: docker.io/library/postgres:15-alpine
+    container_name: nest-legacy-postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - nest-legacy-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: node:20-alpine
+    container_name: nest-legacy-app
+    working_dir: /app
+    volumes:
+      - ..:/app
+    ports:
+      - "3002:3000"
+    environment:
+      DATABASE_URL: postgresql://lamppost:lamppost123@postgres:5432/nesthome
+      AUTH_SECRET: dev-secret-change-in-production-min-32-chars
+      NODE_ENV: development
+    command: sh -c "npm install && rm -rf .next/dev/lock 2>/dev/null; npx next dev -H 0.0.0.0 -p 3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  nest-legacy-pgdata:

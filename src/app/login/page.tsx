@@ -16,6 +16,20 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    try {
+      const dbRes = await fetch('/api/db-check');
+      const dbJson = await dbRes.json();
+      if (!dbJson.ok) {
+        setError(dbJson.error ?? 'Database is unreachable.');
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setError('Could not reach the server. Check your connection.');
+      setLoading(false);
+      return;
+    }
+
     const result = await signIn('credentials', {
       email,
       password,
@@ -25,8 +39,10 @@ export default function LoginPage() {
     if (result?.error) {
       setError('Invalid email or password');
       setLoading(false);
-    } else {
+    } else if (result?.ok) {
       router.push('/dashboard');
+    } else {
+      setLoading(false);
     }
   };
 
@@ -64,7 +80,9 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <p className="text-red-500 text-sm">{error}</p>
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-red-700 text-sm" role="alert">
+              {error}
+            </div>
           )}
 
           <button
@@ -76,12 +94,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg text-xs text-gray-500">
-          <p className="font-medium mb-1">Demo Accounts:</p>
-          <p>Admin: ron@nesthome.com / nesthome123</p>
-          <p>Inspector: inspector@nesthome.com / nesthome123</p>
-          <p>Client: homeowner@example.com / nesthome123</p>
-        </div>
       </div>
     </div>
   );

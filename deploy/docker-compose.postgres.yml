@@ -1,0 +1,29 @@
+# Postgres for nest-legacy. Exposes host port 5433 (container 5432) so the app
+# can use localhost:5433 without conflicting with another Postgres on 5432.
+#
+# Start:  docker compose -f deploy/docker-compose.postgres.yml up -d
+#         or: podman compose -f deploy/docker-compose.postgres.yml up -d
+# Stop:   docker compose -f deploy/docker-compose.postgres.yml down
+#
+# Restore backup (creates nesthome DB and lamppost user):
+#   PSQL_CMD="docker exec -i nest-legacy-postgres psql -U postgres" ./deploy/restore-nesthome-backup.sh --drop
+#   (Use podman exec if using podman.)
+
+services:
+  postgres:
+    image: docker.io/library/postgres:15-alpine
+    container_name: nest-legacy-postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - nest-legacy-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  nest-legacy-pgdata:

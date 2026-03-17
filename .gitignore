@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# deploy: do not commit credential exports
+deploy/kirkwood-passwords-*.csv
+
 # vercel
 .vercel
 
