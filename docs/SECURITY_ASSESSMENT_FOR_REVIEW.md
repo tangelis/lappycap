@@ -65,7 +65,7 @@
 ## 6. Application and Build
 
 - **Runtime:** Service runs as `nest-legacy-run@nest-legacy.iam.gserviceaccount.com`; no secrets in env vars (pulled from Secret Manager). `AUTH_URL` / `NEXTAUTH_URL` set to the service URL.
-- **Repo:** There is an old `cloudbuild.yaml` in repo that references `--allow-unauthenticated` and a different service name (nest-home-poc). The **deployed** nest-legacy service was deployed with **no** public access (invoker-only as above). **Request:** Confirm that the repo’s cloudbuild.yaml should not be used as-is for nest-legacy and that it’s a documentation/template risk only.
+- **Repo:** `cloudbuild.yaml` is now aligned to `nest-legacy` service/repository and no longer contains PoC `--allow-unauthenticated` defaults.
 
 ---
 
@@ -93,7 +93,7 @@ Please confirm or correct:
 - Cloud SQL: Use only private IP and Private Service Connect / VPC if desired.
 - Secrets: Regular rotation for `AUTH_SECRET` and DB password.
 - Cloud Run: Consider `ingress=internal-and-cloud-load-balancing` if putting a load balancer + IAP in front.
-- Repo: Remove or update `cloudbuild.yaml` so it never deploys with `--allow-unauthenticated` for this project.
+- Repo: Keep `cloudbuild.yaml` aligned with the production service and avoid introducing `--allow-unauthenticated`.
 
 ---
 
