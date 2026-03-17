@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { SearchSortBar } from '@/components/SearchSortBar';
 import { useAutoPagination } from '@/hooks/useAutoPagination';
 import { useDebouncedValue, SEARCH_DEBOUNCE_MS } from '@/hooks/useDebouncedValue';
@@ -29,6 +30,7 @@ interface ChecklistTemplate {
 
 type SortKey = 'date' | 'status' | 'property' | 'inspector';
 const PAGE_SIZE = 30;
+const validStatuses = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
 
 interface PaginatedResponse<T> {
   data: T[];
@@ -40,7 +42,7 @@ interface PaginatedResponse<T> {
   };
 }
 
-export default function InspectionsPage() {
+function InspectionsContent() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
@@ -54,7 +56,18 @@ export default function InspectionsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const [form, setForm] = useState({ propertyId: '', scheduledDate: '', templateId: '' });
+  const [filterHasIssues, setFilterHasIssues] = useState(false);
+  const searchParams = useSearchParams();
+  const [filterStatus, setFilterStatus] = useState<string>(() => {
+    const s = searchParams.get('status') ?? '';
+    return validStatuses.includes(s as (typeof validStatuses)[number]) ? s : '';
+  });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const s = searchParams.get('status') ?? '';
+    if (validStatuses.includes(s as (typeof validStatuses)[number])) setFilterStatus(s);
+  }, [searchParams]);
 
   const loadInspections = useCallback(async (reset = false) => {
     if (loadingMore || (!hasMore && !reset)) return;
@@ -63,9 +76,16 @@ export default function InspectionsPage() {
     else setLoadingMore(true);
 
     try {
-      const res = await fetch(
-        `/api/inspections?limit=${PAGE_SIZE}&offset=${nextOffset}&sort=${sortKey}&order=${sortOrder}&q=${encodeURIComponent(debouncedSearch.trim())}`
-      );
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(nextOffset),
+        sort: sortKey,
+        order: sortOrder,
+        q: debouncedSearch.trim(),
+      });
+      if (filterHasIssues) params.set('hasIssues', '1');
+      if (filterStatus) params.set('status', filterStatus);
+      const res = await fetch(`/api/inspections?${params.toString()}`);
       const json = await res.json() as PaginatedResponse<Inspection>;
       const page = Array.isArray(json?.data) ? json.data : [];
       setInspections((prev) => (reset ? page : [...prev, ...page]));
@@ -75,7 +95,7 @@ export default function InspectionsPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [hasMore, loadingMore, offset, sortKey, sortOrder, debouncedSearch]);
+  }, [hasMore, loadingMore, offset, sortKey, sortOrder, debouncedSearch, filterHasIssues, filterStatus]);
 
   useEffect(() => {
     fetch('/api/properties?limit=500&offset=0&sort=address&order=asc')
@@ -100,9 +120,9 @@ export default function InspectionsPage() {
     setOffset(0);
     setHasMore(true);
     void loadInspections(true);
-    // Intentionally reset only on sort changes.
+    // Intentionally reset only on sort/filter changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortKey, sortOrder, debouncedSearch]);
+  }, [sortKey, sortOrder, debouncedSearch, filterHasIssues, filterStatus]);
 
   useAutoPagination({
     sentinelRef,
@@ -147,11 +167,12 @@ export default function InspectionsPage() {
         </button>
       </div>
 
-      <SearchSortBar
-        searchPlaceholder="Search by property, inspector, or status..."
-        searchValue={search}
-        onSearchChange={setSearch}
-        sortOptions={[
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <SearchSortBar
+          searchPlaceholder="Search by property, inspector, or status..."
+          searchValue={search}
+          onSearchChange={setSearch}
+          sortOptions={[
           { value: 'date', label: 'Scheduled Date' },
           { value: 'status', label: 'Status' },
           { value: 'property', label: 'Property' },
@@ -162,7 +183,32 @@ export default function InspectionsPage() {
         sortOrder={sortOrder}
         onSortOrderToggle={() => setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'))}
         resultCount={filteredAndSorted.length}
-      />
+        />
+        <button
+          type="button"
+          onClick={() => setFilterHasIssues((v) => !v)}
+          className={`min-h-[44px] px-3 py-2 rounded-lg border text-sm font-medium shrink-0 ${
+            filterHasIssues ? 'bg-amber-100 border-amber-300 text-amber-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          ⚠️ Has issues
+        </button>
+        <div className="flex flex-wrap items-center gap-1 shrink-0">
+          <span className="text-sm text-gray-500 mr-1">Status:</span>
+          {(['', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED'] as const).map((s) => (
+            <button
+              key={s || 'all'}
+              type="button"
+              onClick={() => setFilterStatus(s)}
+              className={`min-h-[44px] px-3 py-2 rounded-lg border text-sm font-medium ${
+                filterStatus === s ? 'bg-emerald-100 border-emerald-300 text-emerald-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {s === '' ? 'All' : s.replace('_', ' ')}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 space-y-4">
@@ -268,6 +314,14 @@ export default function InspectionsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function InspectionsPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-12 text-gray-500">Loading...</div>}>
+      <InspectionsContent />
+    </Suspense>
   );
 }
 

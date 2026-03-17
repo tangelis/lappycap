@@ -33,4 +33,14 @@ test.describe('Dashboard (authenticated)', () => {
     await expect(page).toHaveURL(/\/dashboard\/properties/);
     await expect(page.getByRole('heading', { name: /properties/i })).toBeVisible();
   });
+
+  test('dashboard shows Open Issues stat', async ({ page }) => {
+    await expect(page.getByText(/open issues/i).first()).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('can open Issues page from nav', async ({ page }) => {
+    await page.getByRole('link', { name: /issues/i }).click();
+    await expect(page).toHaveURL(/\/dashboard\/issues/);
+    await expect(page.getByRole('heading', { name: /open issues/i })).toBeVisible();
+  });
 });

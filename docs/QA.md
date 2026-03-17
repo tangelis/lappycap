@@ -16,7 +16,7 @@ npx playwright test
 
 - **Without env**: Playwright starts the dev server (default port 3000) and runs tests. Auth tests (login page, unauthenticated redirects) always run.
 - **With existing app**: `PLAYWRIGHT_BASE_URL=http://localhost:3002 npx playwright test` to hit an app already running (e.g. in a container on 3002).
-- **Authenticated UX tests**: Set `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` to run dashboard and list UX tests (search, sort, nav).
+- **Authenticated UX tests**: Set `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` to run dashboard and list UX tests (search, sort, nav). After seeding, use e.g. `TEST_USER_EMAIL=ron@nesthome.com TEST_USER_PASSWORD=nesthome123` (see `src/db/seed.ts`). Ensure the database has been seeded so login succeeds.
 
 Install browsers once: `npx playwright install chromium`
 

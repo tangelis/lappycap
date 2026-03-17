@@ -10,10 +10,11 @@ const baseNavItems: NavItem[] = [
   { href: '/dashboard', label: '📊 Dashboard', exact: true },
   { href: '/dashboard/properties', label: '🏠 Properties' },
   { href: '/dashboard/inspections', label: '📋 Inspections' },
+  { href: '/dashboard/issues', label: '⚠️ Issues' },
   { href: '/dashboard/routes', label: '🚗 Routes' },
-  { href: '/dashboard/users', label: '👤 Users' },
 ];
 const checklistsNavItem: NavItem = { href: '/dashboard/checklists', label: '📝 Checklists' };
+const usersNavItem: NavItem = { href: '/dashboard/users', label: '👤 Users' };
 
 export default function DashboardLayout({
   children,
@@ -26,7 +27,7 @@ export default function DashboardLayout({
   const closeMenu = () => setMobileMenuOpen(false);
   const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'ADMIN';
   const navItems = useMemo(
-    () => (isAdmin ? [...baseNavItems, checklistsNavItem] : baseNavItems),
+    () => (isAdmin ? [...baseNavItems, checklistsNavItem, usersNavItem] : baseNavItems),
     [isAdmin]
   );
 

@@ -37,4 +37,9 @@ test.describe('Inspections UX (authenticated)', () => {
     await page.goto('/dashboard/routes');
     await expect(page.getByPlaceholder(/search/i)).toBeVisible({ timeout: 5_000 });
   });
+
+  test('inspections list has Has issues filter button', async ({ page }) => {
+    await page.goto('/dashboard/inspections');
+    await expect(page.getByRole('button', { name: /has issues/i })).toBeVisible({ timeout: 5_000 });
+  });
 });

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { inspectionItems, inspections } from '@/db/schema';
-import { asc, desc, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { getPagination } from '@/lib/pagination';
 import { buildChecklistForInspection } from '@/lib/inspection-checklist';
@@ -14,11 +14,13 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const { limit, offset } = getPagination(request, 30, 100);
   const q = searchParams.get('q')?.trim();
+  const hasIssues = searchParams.get('hasIssues') === '1';
+  const statusFilter = searchParams.get('status')?.trim();
   const sort = searchParams.get('sort') ?? 'date';
   const order = searchParams.get('order') === 'asc' ? 'asc' : 'desc';
   const dir = order === 'asc' ? asc : desc;
   const qLike = q ? `%${q}%` : null;
-  const where = qLike
+  const searchWhere = qLike
     ? or(
         sql<boolean>`${inspections.status}::text ilike ${qLike}`,
         sql<boolean>`exists (
@@ -35,6 +37,18 @@ export async function GET(request: Request) {
         )`
       )
     : undefined;
+  const issuesWhere = hasIssues
+    ? sql<boolean>`exists (
+        select 1 from inspection_items ii
+        where ii.inspection_id = ${inspections.id} and ii.status = 'ISSUE'
+      )`
+    : undefined;
+  const statusWhere =
+    statusFilter && ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(statusFilter)
+      ? eq(inspections.status, statusFilter as 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED')
+      : undefined;
+  const whereClauses = [searchWhere, issuesWhere, statusWhere].filter(Boolean);
+  const where = whereClauses.length > 0 ? and(...whereClauses) : undefined;
 
   const result = await db.query.inspections.findMany({
     with: {
