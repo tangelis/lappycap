@@ -4,12 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { SearchSortBar } from '@/components/SearchSortBar';
 import { useAutoPagination } from '@/hooks/useAutoPagination';
-import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-
-interface InspectionItem {
-  id: string;
-  status: string;
-}
+import { useDebouncedValue, SEARCH_DEBOUNCE_MS } from '@/hooks/useDebouncedValue';
 
 interface Inspection {
   id: string;
@@ -19,13 +14,17 @@ interface Inspection {
   overallNotes: string | null;
   property: { id: string; address: string; city: string };
   inspector: { name: string };
-  items: InspectionItem[];
 }
 
 interface Property {
   id: string;
   address: string;
   city: string;
+}
+
+interface ChecklistTemplate {
+  id: string;
+  name: string;
 }
 
 type SortKey = 'date' | 'status' | 'property' | 'inspector';
@@ -44,6 +43,7 @@ interface PaginatedResponse<T> {
 export default function InspectionsPage() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -52,8 +52,8 @@ export default function InspectionsPage() {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const debouncedSearch = useDebouncedValue(search, 200);
-  const [form, setForm] = useState({ propertyId: '', scheduledDate: '' });
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
+  const [form, setForm] = useState({ propertyId: '', scheduledDate: '', templateId: '' });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const loadInspections = useCallback(async (reset = false) => {
@@ -85,6 +85,14 @@ export default function InspectionsPage() {
         setProperties(data);
       })
       .catch(() => setProperties([]));
+    fetch('/api/checklist-templates')
+      .then((r) => r.json())
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setTemplates(list);
+        setForm((f) => (f.templateId ? f : { ...f, templateId: list[0]?.id ?? '' }));
+      })
+      .catch(() => setTemplates([]));
   }, []);
 
   useEffect(() => {
@@ -107,13 +115,18 @@ export default function InspectionsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload: { propertyId: string; scheduledDate: string; templateId?: string } = {
+      propertyId: form.propertyId,
+      scheduledDate: form.scheduledDate,
+    };
+    if (form.templateId) payload.templateId = form.templateId;
     await fetch('/api/inspections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     setShowForm(false);
-    setForm({ propertyId: '', scheduledDate: '' });
+    setForm({ propertyId: '', scheduledDate: '', templateId: templates[0]?.id ?? '' });
     setInspections([]);
     setOffset(0);
     setHasMore(true);
@@ -153,7 +166,7 @@ export default function InspectionsPage() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Property</label>
               <select
@@ -169,6 +182,24 @@ export default function InspectionsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Checklist</label>
+              <select
+                value={form.templateId}
+                onChange={(e) => setForm({ ...form, templateId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none text-sm"
+              >
+                <option value="">No checklist (empty)</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              {templates.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">Add checklist templates in DB seed to get items.</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled Date</label>
@@ -193,57 +224,41 @@ export default function InspectionsPage() {
             <p>{debouncedSearch.trim() ? 'No inspections match your search.' : 'No inspections yet. Schedule one above.'}</p>
           </div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full min-w-[600px]">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
               <tr>
                 <th className="px-6 py-3 text-left">Property</th>
                 <th className="px-6 py-3 text-left">Inspector</th>
                 <th className="px-6 py-3 text-left">Date</th>
                 <th className="px-6 py-3 text-left">Status</th>
-                <th className="px-6 py-3 text-left">Progress</th>
                 <th className="px-6 py-3 text-left">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredAndSorted.map((insp) => {
-                const done = insp.items.filter((i) => i.status !== 'PENDING').length;
-                const total = insp.items.length;
-                const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-                return (
-                  <tr key={insp.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-800">
-                      {insp.property.address}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{insp.inspector.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{insp.scheduledDate || '—'}</td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={insp.status} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-500 rounded-full transition-all"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-500">{done}/{total}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Link
-                        href={`/dashboard/inspections/${insp.id}`}
-                        className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
-                      >
-                        View →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredAndSorted.map((insp) => (
+                <tr key={insp.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-800">
+                    {insp.property.address}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{insp.inspector.name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{insp.scheduledDate || '—'}</td>
+                  <td className="px-6 py-4">
+                    <StatusBadge status={insp.status} />
+                  </td>
+                  <td className="px-6 py-4">
+                    <Link
+                      href={`/dashboard/inspections/${insp.id}`}
+                      className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+                    >
+                      View →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       <div ref={sentinelRef} className="h-6" />

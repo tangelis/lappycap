@@ -20,6 +20,15 @@ interface Inspection {
   scheduledDate: string | null;
   completedAt: string | null;
   overallNotes: string | null;
+  notesClientEyes: string | null;
+  interiorOk: boolean;
+  exteriorOk: boolean;
+  preparedHomeArrival: boolean;
+  closedHomeDeparture: boolean;
+  hvacTemps: string | null;
+  humidityReadings: string | null;
+  inspectionNumber: number | null;
+  weekNumber: number | null;
   property: {
     address: string;
     city: string;
@@ -49,6 +58,15 @@ export default function InspectionDetailPage() {
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<InspectionItem[]>([]);
   const [overallNotes, setOverallNotes] = useState('');
+  const [notesClientEyes, setNotesClientEyes] = useState('');
+  const [interiorOk, setInteriorOk] = useState(false);
+  const [exteriorOk, setExteriorOk] = useState(false);
+  const [preparedHomeArrival, setPreparedHomeArrival] = useState(false);
+  const [closedHomeDeparture, setClosedHomeDeparture] = useState(false);
+  const [hvacTemps, setHvacTemps] = useState('');
+  const [humidityReadings, setHumidityReadings] = useState('');
+  const [inspectionNumber, setInspectionNumber] = useState('');
+  const [weekNumber, setWeekNumber] = useState('');
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,6 +76,15 @@ export default function InspectionDetailPage() {
         setInspection(data);
         setItems(data.items || []);
         setOverallNotes(data.overallNotes || '');
+        setNotesClientEyes(data.notesClientEyes || '');
+        setInteriorOk(!!data.interiorOk);
+        setExteriorOk(!!data.exteriorOk);
+        setPreparedHomeArrival(!!data.preparedHomeArrival);
+        setClosedHomeDeparture(!!data.closedHomeDeparture);
+        setHvacTemps(data.hvacTemps || '');
+        setHumidityReadings(data.humidityReadings || '');
+        setInspectionNumber(data.inspectionNumber != null ? String(data.inspectionNumber) : '');
+        setWeekNumber(data.weekNumber != null ? String(data.weekNumber) : '');
         setLoading(false);
       });
   }, [params.id]);
@@ -101,10 +128,20 @@ export default function InspectionDetailPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [focusedItemId, items]);
 
+  const startInspection = async () => {
+    setSaving(true);
+    await fetch(`/api/inspections/${params.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'IN_PROGRESS' }),
+    });
+    setInspection((prev) => (prev ? { ...prev, status: 'IN_PROGRESS' } : null));
+    setSaving(false);
+  };
+
   const saveInspection = async (complete = false) => {
     setSaving(true);
 
-    // Save items
     await fetch(`/api/inspections/${params.id}/items`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -113,14 +150,25 @@ export default function InspectionDetailPage() {
       }),
     });
 
-    // Update inspection status
+    const inspectionPayload: Record<string, unknown> = {
+      overallNotes,
+      notesClientEyes: notesClientEyes || undefined,
+      interiorOk,
+      exteriorOk,
+      preparedHomeArrival,
+      closedHomeDeparture,
+      hvacTemps: hvacTemps || undefined,
+      humidityReadings: humidityReadings || undefined,
+      status: complete ? 'COMPLETED' : 'IN_PROGRESS',
+    };
+    const inspNum = inspectionNumber.trim() ? parseInt(inspectionNumber, 10) : NaN;
+    const weekNum = weekNumber.trim() ? parseInt(weekNumber, 10) : NaN;
+    if (!Number.isNaN(inspNum)) inspectionPayload.inspectionNumber = inspNum;
+    if (!Number.isNaN(weekNum)) inspectionPayload.weekNumber = weekNum;
     await fetch(`/api/inspections/${params.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        overallNotes,
-        status: complete ? 'COMPLETED' : 'IN_PROGRESS',
-      }),
+      body: JSON.stringify(inspectionPayload),
     });
 
     setSaving(false);
@@ -141,7 +189,6 @@ export default function InspectionDetailPage() {
     return acc;
   }, {});
 
-  const completedCount = items.filter((i) => i.status !== 'PENDING').length;
   const issueCount = items.filter((i) => i.status === 'ISSUE').length;
 
   return (
@@ -157,7 +204,6 @@ export default function InspectionDetailPage() {
           </Link>
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-sm font-medium text-gray-700 truncate">{inspection.property.address}</span>
-            <span className="text-sm text-gray-500 shrink-0">{completedCount}/{items.length}</span>
             {issueCount > 0 && (
               <span className="text-sm text-red-600 font-medium shrink-0">⚠️ {issueCount}</span>
             )}
@@ -186,9 +232,18 @@ export default function InspectionDetailPage() {
             }`}>
               {inspection.status.replace('_', ' ')}
             </span>
-            <p className="text-sm text-gray-500 mt-2">{completedCount}/{items.length} items checked</p>
             {issueCount > 0 && (
               <p className="text-sm text-red-600 font-medium">⚠️ {issueCount} issue{issueCount > 1 ? 's' : ''}</p>
+            )}
+            {inspection.status === 'SCHEDULED' && (
+              <button
+                type="button"
+                onClick={startInspection}
+                disabled={saving}
+                className="mt-3 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium disabled:opacity-50"
+              >
+                {saving ? 'Starting…' : '▶ Start inspection'}
+              </button>
             )}
           </div>
         </div>
@@ -208,6 +263,53 @@ export default function InspectionDetailPage() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Business / summary fields */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <h3 className="font-semibold text-gray-700 mb-3">Summary &amp; readings</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={interiorOk} onChange={(e) => setInteriorOk(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+            Interior OK
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={exteriorOk} onChange={(e) => setExteriorOk(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+            Exterior OK
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={preparedHomeArrival} onChange={(e) => setPreparedHomeArrival(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+            Prepared home (arrival)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={closedHomeDeparture} onChange={(e) => setClosedHomeDeparture(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+            Closed home (departure)
+          </label>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">HVAC temps</label>
+            <input type="text" value={hvacTemps} onChange={(e) => setHvacTemps(e.target.value)} placeholder="e.g. 74°F" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Humidity readings</label>
+            <input type="text" value={humidityReadings} onChange={(e) => setHumidityReadings(e.target.value)} placeholder="e.g. 52%" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Inspection #</label>
+            <input type="text" inputMode="numeric" value={inspectionNumber} onChange={(e) => setInspectionNumber(e.target.value)} placeholder="Optional" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Week #</label>
+            <input type="text" inputMode="numeric" value={weekNumber} onChange={(e) => setWeekNumber(e.target.value)} placeholder="Optional" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Notes (visible to client)</label>
+          <textarea value={notesClientEyes} onChange={(e) => setNotesClientEyes(e.target.value)} rows={2} placeholder="Brief summary for client..." className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
       </div>
 
       {/* Checklist by category */}
@@ -280,18 +382,18 @@ export default function InspectionDetailPage() {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 justify-end mb-8">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end mb-8">
         <button
           onClick={() => saveInspection(false)}
           disabled={saving}
-          className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="min-h-[44px] px-6 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Progress'}
         </button>
         <button
           onClick={() => saveInspection(true)}
           disabled={saving}
-          className="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 text-sm font-medium disabled:opacity-50"
+          className="min-h-[44px] px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium disabled:opacity-50"
         >
           {saving ? 'Completing...' : '✅ Complete Inspection'}
         </button>

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { inspections, inspectionItems, checklistTemplateItems } from '@/db/schema';
-import { asc, desc, eq, or, sql } from 'drizzle-orm';
+import { inspectionItems, inspections } from '@/db/schema';
+import { asc, desc, inArray, or, sql } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { getPagination } from '@/lib/pagination';
+import { buildChecklistForInspection } from '@/lib/inspection-checklist';
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -39,7 +40,6 @@ export async function GET(request: Request) {
     with: {
       property: true,
       inspector: true,
-      items: true,
     },
     orderBy:
       sort === 'status'
@@ -51,7 +51,32 @@ export async function GET(request: Request) {
   });
 
   const hasMore = result.length > limit;
-  const data = hasMore ? result.slice(0, limit) : result;
+  const page = hasMore ? result.slice(0, limit) : result;
+
+  const ids = page.map((inspection) => inspection.id);
+  const progressRows = ids.length === 0
+    ? []
+    : await db
+      .select({
+        inspectionId: inspectionItems.inspectionId,
+        total: sql<number>`count(*)`,
+        done: sql<number>`sum(case when ${inspectionItems.status} <> 'PENDING' then 1 else 0 end)`,
+      })
+      .from(inspectionItems)
+      .where(inArray(inspectionItems.inspectionId, ids))
+      .groupBy(inspectionItems.inspectionId);
+
+  const progressById = new Map(
+    progressRows.map((row) => [
+      row.inspectionId,
+      { done: Number(row.done ?? 0), total: Number(row.total ?? 0) },
+    ])
+  );
+
+  const data = page.map((inspection) => ({
+    ...inspection,
+    progress: progressById.get(inspection.id) ?? { done: 0, total: 0 },
+  }));
   return NextResponse.json({
     data,
     meta: {
@@ -85,24 +110,12 @@ export async function POST(request: Request) {
     scheduledDate: body.scheduledDate,
   }).returning();
 
-  // If template provided, populate items from template
-  if (body.templateId) {
-    const templateItems = await db.query.checklistTemplateItems.findMany({
-      where: eq(checklistTemplateItems.templateId, body.templateId),
-    });
-
-    if (templateItems.length > 0) {
-      await db.insert(inspectionItems).values(
-        templateItems.map((item) => ({
-          inspectionId: inspection.id,
-          label: item.label,
-          category: item.category,
-          sortOrder: item.sortOrder,
-          status: 'PENDING' as const,
-        }))
-      );
-    }
-  }
+  // Populate from existing DB sources (template + property-level checklist sources).
+  await buildChecklistForInspection({
+    inspectionId: inspection.id,
+    propertyId: inspection.propertyId,
+    templateId: body.templateId,
+  });
 
   return NextResponse.json(inspection, { status: 201 });
 }

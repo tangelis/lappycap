@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { SearchSortBar } from '@/components/SearchSortBar';
 import { useAutoPagination } from '@/hooks/useAutoPagination';
-import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useDebouncedValue, SEARCH_DEBOUNCE_MS } from '@/hooks/useDebouncedValue';
 
 interface UserRow {
   id: string;
@@ -40,7 +40,7 @@ export default function UsersPage() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const debouncedSearch = useDebouncedValue(search, 200);
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const loadUsers = useCallback(async (reset = false) => {
     if (loadingMore || (!hasMore && !reset)) return;
@@ -159,7 +159,8 @@ export default function UsersPage() {
             <p>{debouncedSearch.trim() ? 'No users match your search.' : 'No users found.'}</p>
           </div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full min-w-[600px]">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
               <tr>
                 <th className="px-6 py-3 text-left">Name</th>
@@ -198,6 +199,7 @@ export default function UsersPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       <div ref={sentinelRef} className="h-6" />

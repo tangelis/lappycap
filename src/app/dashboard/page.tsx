@@ -124,7 +124,8 @@ export default function DashboardPage() {
             </Link>
           </div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <table className="w-full min-w-[500px]">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
               <tr>
                 <th className="px-6 py-3 text-left">Property</th>
@@ -154,6 +155,7 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

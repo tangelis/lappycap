@@ -15,7 +15,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: ['**/mobile.spec.ts'] },
+    { name: 'mobile-chrome', use: { ...devices['Pixel 5'] } },
+    { name: 'mobile-safari', use: { ...devices['iPhone 13'] } },
   ],
   // When PLAYWRIGHT_BASE_URL is set (e.g. http://localhost:3002), app is assumed running; otherwise start dev server.
   webServer: process.env.PLAYWRIGHT_BASE_URL || process.env.CI

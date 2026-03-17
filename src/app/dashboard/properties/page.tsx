@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { SearchSortBar } from '@/components/SearchSortBar';
 import { useAutoPagination } from '@/hooks/useAutoPagination';
-import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useDebouncedValue, SEARCH_DEBOUNCE_MS } from '@/hooks/useDebouncedValue';
 
 interface Client {
   id: string;
@@ -49,7 +49,7 @@ export default function PropertiesPage() {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('updated');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const debouncedSearch = useDebouncedValue(search, 200);
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState({
     address: '',

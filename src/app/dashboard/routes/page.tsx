@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { SearchSortBar } from '@/components/SearchSortBar';
 import { useAutoPagination } from '@/hooks/useAutoPagination';
-import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useDebouncedValue, SEARCH_DEBOUNCE_MS } from '@/hooks/useDebouncedValue';
 
 interface Route {
   id: string;
@@ -34,7 +34,7 @@ export default function RoutesPage() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 200);
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
