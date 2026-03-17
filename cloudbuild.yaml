@@ -7,8 +7,8 @@ steps:
     args:
       - '-c'
       - |
-        DB_HOST=$(gcloud sql instances describe ${_SERVICE_NAME}-db --project=${PROJECT_ID} --format="value(ipAddresses[0].ipAddress)" --region=${_AR_REGION})
-        echo "_DB_HOST=${DB_HOST}" >> /workspace/env_vars.txt
+        DB_HOST=$$(gcloud sql instances describe ${_SERVICE_NAME}-db --project=${PROJECT_ID} --format="value(ipAddresses[0].ipAddress)")
+        echo "_DB_HOST=$$DB_HOST" >> /workspace/env_vars.txt
     env:
       - 'HOME=/builder/home'
 
@@ -16,7 +16,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     id: Build
     args: ['build', '-t', '${_AR_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO_NAME}/${_SERVICE_NAME}:${TAG_NAME}', '.']
-    dir: '/workspace/nest-home'
+    dir: '.'
 
   # Push the Docker image to Google Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
@@ -38,7 +38,7 @@ steps:
       - 'managed'
       - '--allow-unauthenticated' # For PoC - remove in prod if auth needed
       - '--port=3100'
-      - '--set-env-vars=DATABASE_URL=postgresql://${_DB_USER}:${_DB_PASSWORD}@$(cat /workspace/env_vars.txt | grep _DB_HOST | cut -d'=' -f2)/${_DB_NAME}'
+      - "--set-env-vars=DATABASE_URL=postgresql://${_DB_USER}:${_DB_PASSWORD}@$(cat /workspace/env_vars.txt | grep _DB_HOST | cut -d= -f2)/${_DB_NAME}"
       - '--vpc-connector=${_VPC_CONNECTOR_NAME}'
       - '--ingress=all'
       - '--min-instances=0'
