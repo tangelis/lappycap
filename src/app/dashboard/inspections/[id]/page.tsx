@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
 interface InspectionItem {
@@ -48,6 +49,7 @@ export default function InspectionDetailPage() {
   const [saving, setSaving] = useState(false);
   const [items, setItems] = useState<InspectionItem[]>([]);
   const [overallNotes, setOverallNotes] = useState('');
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/inspections/${params.id}`)
@@ -71,6 +73,33 @@ export default function InspectionDetailPage() {
       prev.map((item) => (item.id === itemId ? { ...item, notes } : item))
     );
   };
+
+  const markCategoryOk = useCallback((category: string) => {
+    setItems((prev) =>
+      prev.map((item) => {
+        const cat = item.category || 'General';
+        return cat === category ? { ...item, status: 'OK' as const } : item;
+      })
+    );
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const targetId = focusedItemId ?? items.find((i) => i.status === 'PENDING')?.id;
+      if (!targetId) return;
+      const map: Record<string, 'OK' | 'ISSUE' | 'N_A'> = { '1': 'OK', '2': 'ISSUE', '3': 'N_A' };
+      const status = map[e.key];
+      if (status) {
+        e.preventDefault();
+        setItems((prev) =>
+          prev.map((item) => (item.id === targetId ? { ...item, status } : item))
+        );
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [focusedItemId, items]);
 
   const saveInspection = async (complete = false) => {
     setSaving(true);
@@ -117,7 +146,27 @@ export default function InspectionDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Header */}
+      {/* Sticky header: property + progress + back */}
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm -mx-4 px-4 py-3 mb-4">
+        <div className="flex items-center justify-between gap-4">
+          <Link
+            href="/dashboard/inspections"
+            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium shrink-0"
+          >
+            ← Back to Inspections
+          </Link>
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-sm font-medium text-gray-700 truncate">{inspection.property.address}</span>
+            <span className="text-sm text-gray-500 shrink-0">{completedCount}/{items.length}</span>
+            {issueCount > 0 && (
+              <span className="text-sm text-red-600 font-medium shrink-0">⚠️ {issueCount}</span>
+            )}
+            <span className="text-xs text-gray-400 shrink-0 hidden sm:inline">1=OK 2=Issue 3=N/A</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Header card */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-start justify-between">
           <div>
@@ -164,19 +213,34 @@ export default function InspectionDetailPage() {
       {/* Checklist by category */}
       {Object.entries(categories).map(([category, catItems]) => (
         <div key={category} className="bg-white rounded-xl shadow-sm border border-gray-200 mb-4 overflow-hidden">
-          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+          <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-3">
             <h3 className="font-semibold text-gray-700">{category}</h3>
+            <button
+              type="button"
+              onClick={() => markCategoryOk(category)}
+              className="text-xs font-medium text-emerald-600 hover:text-emerald-700 border border-emerald-200 rounded-lg px-2 py-1 hover:bg-emerald-50"
+            >
+              Mark all OK
+            </button>
           </div>
           <div className="divide-y divide-gray-100">
             {catItems.map((item) => (
-              <div key={item.id} className="px-6 py-4">
+              <div
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setFocusedItemId(item.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setFocusedItemId(item.id); }}
+                className={`px-6 py-4 ${focusedItemId === item.id ? 'ring-2 ring-emerald-400 ring-inset' : ''}`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-800 font-medium">{item.label}</span>
                   <div className="flex gap-1">
                     {STATUS_OPTIONS.map((s) => (
                       <button
                         key={s}
-                        onClick={() => updateItemStatus(item.id, s)}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, s); }}
                         className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${
                           item.status === s
                             ? STATUS_COLORS[s]

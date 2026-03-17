@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { SearchSortBar } from '@/components/SearchSortBar';
+import { useAutoPagination } from '@/hooks/useAutoPagination';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 interface Client {
   id: string;
@@ -20,12 +23,34 @@ interface Property {
   specialInstructions: string | null;
   isActive: boolean;
   client: Client | null;
+  updatedAt?: string;
+}
+
+type SortKey = 'updated' | 'address' | 'city' | 'state' | 'status';
+const PAGE_SIZE = 30;
+
+interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+    nextOffset: number | null;
+  };
 }
 
 export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('updated');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const debouncedSearch = useDebouncedValue(search, 200);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState({
     address: '',
     city: '',
@@ -35,16 +60,47 @@ export default function PropertiesPage() {
     specialInstructions: '',
   });
 
-  const fetchProperties = () => {
-    fetch('/api/properties')
-      .then((r) => r.json())
-      .then((data) => {
-        setProperties(Array.isArray(data) ? data : []);
-        setLoading(false);
-      });
-  };
+  const loadProperties = useCallback(async (reset = false) => {
+    if (loadingMore || (!hasMore && !reset)) return;
+    const nextOffset = reset ? 0 : offset;
+    if (reset) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
 
-  useEffect(() => { fetchProperties(); }, []);
+    try {
+      const res = await fetch(
+        `/api/properties?limit=${PAGE_SIZE}&offset=${nextOffset}&sort=${sortKey}&order=${sortOrder}&q=${encodeURIComponent(debouncedSearch.trim())}`
+      );
+      const json = await res.json() as PaginatedResponse<Property>;
+      const page = Array.isArray(json?.data) ? json.data : [];
+      setProperties((prev) => (reset ? page : [...prev, ...page]));
+      setHasMore(Boolean(json?.meta?.hasMore));
+      setOffset(json?.meta?.nextOffset ?? nextOffset + page.length);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [hasMore, loadingMore, offset, sortKey, sortOrder, debouncedSearch]);
+
+  useEffect(() => {
+    setProperties([]);
+    setOffset(0);
+    setHasMore(true);
+    void loadProperties(true);
+    // Intentionally reset only on sort changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortKey, sortOrder, debouncedSearch]);
+
+  useAutoPagination({
+    sentinelRef,
+    hasMore,
+    loading: loading || loadingMore,
+    onLoadMore: () => { void loadProperties(false); },
+  });
+
+  const filteredAndSorted = useMemo(() => properties, [properties]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +111,10 @@ export default function PropertiesPage() {
     });
     setShowForm(false);
     setForm({ address: '', city: '', state: 'FL', zip: '', accessNotes: '', specialInstructions: '' });
-    fetchProperties();
+    setProperties([]);
+    setOffset(0);
+    setHasMore(true);
+    void loadProperties(true);
   };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
@@ -71,6 +130,24 @@ export default function PropertiesPage() {
           {showForm ? 'Cancel' : '+ Add Property'}
         </button>
       </div>
+
+      <SearchSortBar
+        searchPlaceholder="Search by address, city, state, zip, or owner..."
+        searchValue={search}
+        onSearchChange={setSearch}
+        sortOptions={[
+          { value: 'updated', label: 'Last updated' },
+          { value: 'address', label: 'Address' },
+          { value: 'city', label: 'City' },
+          { value: 'state', label: 'State' },
+          { value: 'status', label: 'Status' },
+        ]}
+        sortValue={sortKey}
+        onSortChange={(v) => setSortKey(v as SortKey)}
+        sortOrder={sortOrder}
+        onSortOrderToggle={() => setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'))}
+        resultCount={filteredAndSorted.length}
+      />
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 space-y-4">
@@ -89,7 +166,7 @@ export default function PropertiesPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {properties.map((prop) => (
+        {filteredAndSorted.map((prop) => (
           <Link key={prop.id} href={`/dashboard/properties/${prop.id}`} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow block">
             <div className="flex items-start justify-between mb-3">
               <h3 className="font-semibold text-gray-800">{prop.address}</h3>
@@ -117,10 +194,17 @@ export default function PropertiesPage() {
         ))}
       </div>
 
-      {properties.length === 0 && (
+      <div ref={sentinelRef} className="h-6" />
+      {(loadingMore || hasMore) && (
+        <div className="text-center py-4 text-sm text-gray-400">
+          {loadingMore ? 'Loading more properties...' : 'Scroll for more'}
+        </div>
+      )}
+
+      {filteredAndSorted.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           <p className="text-4xl mb-2">🏠</p>
-          <p>No properties yet. Add your first one above.</p>
+          <p>{debouncedSearch.trim() ? 'No properties match your search.' : 'No properties yet. Add your first one above.'}</p>
         </div>
       )}
     </div>

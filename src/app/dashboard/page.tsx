@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-
-interface Property {
-  id: string;
-  address: string;
-  city: string;
-  state: string;
-  isActive: boolean;
+ 
+interface Summary {
+  activeProperties: number;
+  scheduledInspections: number;
+  completedInspections: number;
+  issueCount: number;
 }
 
 interface Arrival {
@@ -23,26 +22,37 @@ interface Arrival {
 interface Inspection {
   id: string;
   status: string;
-  scheduledDate: string;
+  scheduledDate: string | null;
   completedAt: string | null;
   property: { address: string; city: string };
   inspector: { name: string };
-  items: { id: string; status: string }[];
+  doneCount: number;
+  totalCount: number;
 }
 
 export default function DashboardPage() {
-  const [properties, setProperties] = useState<Property[]>([]);
+  const [summary, setSummary] = useState<Summary>({
+    activeProperties: 0,
+    scheduledInspections: 0,
+    completedInspections: 0,
+    issueCount: 0,
+  });
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [arrivals, setArrivals] = useState<Arrival[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/properties').then((r) => r.json()),
-      fetch('/api/inspections').then((r) => r.json()),
-      fetch('/api/dashboard/arrivals').then((r) => r.json()).catch(() => []),
-    ]).then(([props, insps, arrs]) => {
-      setProperties(Array.isArray(props) ? props : []);
+      fetch('/api/dashboard/summary').then((r) => r.json()),
+      fetch('/api/dashboard/recent-inspections?limit=5').then((r) => r.json()),
+      fetch('/api/dashboard/arrivals?limit=5').then((r) => r.json()).catch(() => []),
+    ]).then(([summaryData, insps, arrs]) => {
+      setSummary({
+        activeProperties: Number(summaryData?.activeProperties ?? 0),
+        scheduledInspections: Number(summaryData?.scheduledInspections ?? 0),
+        completedInspections: Number(summaryData?.completedInspections ?? 0),
+        issueCount: Number(summaryData?.issueCount ?? 0),
+      });
       setInspections(Array.isArray(insps) ? insps : []);
       setArrivals(Array.isArray(arrs) ? arrs : []);
       setLoading(false);
@@ -53,24 +63,16 @@ export default function DashboardPage() {
     return <div className="text-center py-12 text-gray-500">Loading...</div>;
   }
 
-  const activeProperties = properties.filter((p) => p.isActive).length;
-  const completedInspections = inspections.filter((i) => i.status === 'COMPLETED').length;
-  const scheduledInspections = inspections.filter((i) => i.status === 'SCHEDULED').length;
-  const issueCount = inspections.reduce(
-    (acc, i) => acc + i.items.filter((item) => item.status === 'ISSUE').length,
-    0
-  );
-
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Active Properties" value={activeProperties} icon="🏠" color="emerald" />
-        <StatCard label="Scheduled" value={scheduledInspections} icon="📅" color="blue" />
-        <StatCard label="Completed" value={completedInspections} icon="✅" color="green" />
-        <StatCard label="Open Issues" value={issueCount} icon="⚠️" color="amber" />
+        <StatCard label="Active Properties" value={summary.activeProperties} icon="🏠" color="emerald" />
+        <StatCard label="Scheduled" value={summary.scheduledInspections} icon="📅" color="blue" />
+        <StatCard label="Completed" value={summary.completedInspections} icon="✅" color="green" />
+        <StatCard label="Open Issues" value={summary.issueCount} icon="⚠️" color="amber" />
       </div>
 
       {/* Upcoming Arrivals */}
@@ -146,7 +148,7 @@ export default function DashboardPage() {
                     <StatusBadge status={insp.status} />
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {insp.items.filter((i) => i.status !== 'PENDING').length}/{insp.items.length}
+                    {insp.doneCount}/{insp.totalCount}
                   </td>
                 </tr>
               ))}

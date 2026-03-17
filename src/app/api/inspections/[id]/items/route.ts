@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { inspectionItems } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 
 export async function PATCH(
@@ -13,6 +13,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { id: inspectionId } = await params;
   const body = await request.json();
 
   // body.items = [{ id, status, notes, photoUrl }]
@@ -29,9 +30,9 @@ export async function PATCH(
 
     const [updated] = await db.update(inspectionItems)
       .set(updates)
-      .where(eq(inspectionItems.id, item.id))
+      .where(and(eq(inspectionItems.id, item.id), eq(inspectionItems.inspectionId, inspectionId)))
       .returning();
-    results.push(updated);
+    if (updated) results.push(updated);
   }
 
   return NextResponse.json(results);
