@@ -17,7 +17,14 @@
 
 3. **`.env.local`** is set to `127.0.0.1:5433` for app-on-host.
 
-4. **Run the app on the host**:
+4. **Run migrations** (if the DB was created before the inspection_item_id column existed):
+   ```bash
+   cd /home/tangel/src/nest-legacy
+   npx drizzle-kit push
+   ```
+   Or apply `drizzle/0000_add_inspection_item_attachments.sql` manually.
+
+5. **Run the app on the host**:
    ```bash
    cd /home/tangel/src/nest-legacy
    PORT=3001 npm run dev

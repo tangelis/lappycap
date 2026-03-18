@@ -20,7 +20,7 @@ export async function GET(
     with: {
       property: { with: { client: true } },
       inspector: true,
-      items: true,
+      items: { with: { attachments: true } },
     },
   });
 
@@ -39,7 +39,7 @@ export async function GET(
       with: {
         property: { with: { client: true } },
         inspector: true,
-        items: true,
+        items: { with: { attachments: true } },
       },
     });
     return NextResponse.json(reloaded ?? inspection);

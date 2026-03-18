@@ -303,10 +303,11 @@ export const inspectorNotes = pgTable('inspector_notes', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// Walksheet attachments (photos/files)
+// Walksheet attachments (photos/files); optional inspectionItemId links to a checklist item (issue photo)
 export const inspectionAttachments = pgTable('inspection_attachments', {
   id: uuid('id').primaryKey().defaultRandom(),
   inspectionId: uuid('inspection_id').references(() => inspections.id, { onDelete: 'cascade' }).notNull(),
+  inspectionItemId: uuid('inspection_item_id').references(() => inspectionItems.id, { onDelete: 'cascade' }),
   description: varchar('description', { length: 255 }),
   fileUrl: text('file_url').notNull(),
   fileName: varchar('file_name', { length: 255 }),
@@ -445,8 +446,9 @@ export const inspectionsRelations = relations(inspections, ({ one, many }) => ({
   hurricaneItems: many(inspectionHurricane),
 }));
 
-export const inspectionItemsRelations = relations(inspectionItems, ({ one }) => ({
+export const inspectionItemsRelations = relations(inspectionItems, ({ one, many }) => ({
   inspection: one(inspections, { fields: [inspectionItems.inspectionId], references: [inspections.id] }),
+  attachments: many(inspectionAttachments),
 }));
 
 export const inspectorNotesRelations = relations(inspectorNotes, ({ one }) => ({
@@ -455,6 +457,7 @@ export const inspectorNotesRelations = relations(inspectorNotes, ({ one }) => ({
 
 export const inspectionAttachmentsRelations = relations(inspectionAttachments, ({ one }) => ({
   inspection: one(inspections, { fields: [inspectionAttachments.inspectionId], references: [inspections.id] }),
+  inspectionItem: one(inspectionItems, { fields: [inspectionAttachments.inspectionItemId], references: [inspectionItems.id] }),
 }));
 
 export const inspectionServicesRelations = relations(inspectionServices, ({ one }) => ({

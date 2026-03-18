@@ -4,6 +4,13 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 
+interface ItemAttachment {
+  id: string;
+  fileUrl: string;
+  fileName: string | null;
+  description: string | null;
+}
+
 interface InspectionItem {
   id: string;
   label: string;
@@ -12,6 +19,7 @@ interface InspectionItem {
   notes: string | null;
   photoUrl: string | null;
   sortOrder: string;
+  attachments?: ItemAttachment[];
 }
 
 interface Inspection {
@@ -68,6 +76,7 @@ export default function InspectionDetailPage() {
   const [inspectionNumber, setInspectionNumber] = useState('');
   const [weekNumber, setWeekNumber] = useState('');
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/inspections/${params.id}`)
@@ -100,6 +109,30 @@ export default function InspectionDetailPage() {
       prev.map((item) => (item.id === itemId ? { ...item, notes } : item))
     );
   };
+
+  const uploadAttachment = useCallback(async (itemId: string, file: File) => {
+    setUploadingItemId(itemId);
+    const form = new FormData();
+    form.set('file', file);
+    form.set('itemId', itemId);
+    try {
+      const res = await fetch(`/api/inspections/${params.id}/attachments`, {
+        method: 'POST',
+        body: form,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const att = await res.json();
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? { ...item, attachments: [...(item.attachments || []), { id: att.id, fileUrl: att.fileUrl, fileName: att.fileName, description: att.description }] }
+            : item
+        )
+      );
+    } finally {
+      setUploadingItemId(null);
+    }
+  }, [params.id]);
 
   const markCategoryOk = useCallback((category: string) => {
     setItems((prev) =>
@@ -354,14 +387,54 @@ export default function InspectionDetailPage() {
                     ))}
                   </div>
                 </div>
-                {(item.status === 'ISSUE' || item.notes) && (
-                  <input
-                    type="text"
-                    placeholder="Add notes..."
-                    value={item.notes || ''}
-                    onChange={(e) => updateItemNotes(item.id, e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-emerald-500 outline-none mt-1"
-                  />
+                {(item.status === 'ISSUE' || item.notes || (item.attachments?.length ?? 0) > 0) && (
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Add notes..."
+                      value={item.notes || ''}
+                      onChange={(e) => updateItemNotes(item.id, e.target.value)}
+                      className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-1 focus:ring-emerald-500 outline-none"
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="cursor-pointer text-xs font-medium text-emerald-600 hover:text-emerald-700 border border-emerald-200 rounded-lg px-2 py-1.5 hover:bg-emerald-50 inline-flex items-center gap-1">
+                        <span>📷 Add photo/file</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="sr-only"
+                          disabled={uploadingItemId === item.id}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) uploadAttachment(item.id, f);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                      {uploadingItemId === item.id && (
+                        <span className="text-xs text-gray-500">Uploading…</span>
+                      )}
+                    </div>
+                    {(item.attachments?.length ?? 0) > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {item.attachments!.map((att) => (
+                          <a
+                            key={att.id}
+                            href={att.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline"
+                          >
+                            {att.fileUrl.match(/\.(pdf)$/i) ? (
+                              <>📄 {att.fileName || 'PDF'}</>
+                            ) : (
+                              <img src={att.fileUrl} alt={att.fileName || 'Attachment'} className="h-12 w-12 object-cover rounded border border-gray-200" />
+                            )}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
