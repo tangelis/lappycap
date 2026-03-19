@@ -1,0 +1,106 @@
+export interface RadioStation {
+  name: string;
+  genre: string;
+  url: string;
+  homepage: string;
+}
+
+export const radioStations: RadioStation[] = [
+  // SomaFM — all streams serve CORS headers
+  {
+    name: 'Groove Salad',
+    genre: 'Ambient / Chill',
+    url: 'https://ice1.somafm.com/groovesalad-128-mp3',
+    homepage: 'https://somafm.com/groovesalad/',
+  },
+  {
+    name: 'Groove Salad Classic',
+    genre: 'Ambient / Downtempo',
+    url: 'https://ice1.somafm.com/gsclassic-128-mp3',
+    homepage: 'https://somafm.com/gsclassic/',
+  },
+  {
+    name: 'Lush',
+    genre: 'Electronic / Mellow',
+    url: 'https://ice1.somafm.com/lush-128-mp3',
+    homepage: 'https://somafm.com/lush/',
+  },
+  {
+    name: 'Deep Space One',
+    genre: 'Deep Ambient',
+    url: 'https://ice1.somafm.com/deepspaceone-128-mp3',
+    homepage: 'https://somafm.com/deepspaceone/',
+  },
+  {
+    name: 'Drone Zone',
+    genre: 'Atmospheric Ambient',
+    url: 'https://ice1.somafm.com/dronezone-128-mp3',
+    homepage: 'https://somafm.com/dronezone/',
+  },
+  {
+    name: 'Space Station Soma',
+    genre: 'Mid-tempo / Electronic',
+    url: 'https://ice1.somafm.com/spacestation-128-mp3',
+    homepage: 'https://somafm.com/spacestation/',
+  },
+  {
+    name: 'Left Coast 70s',
+    genre: '70s Funk / Soul',
+    url: 'https://ice1.somafm.com/seventies-128-mp3',
+    homepage: 'https://somafm.com/seventies/',
+  },
+  {
+    name: 'Underground 80s',
+    genre: '80s New Wave / Synth',
+    url: 'https://ice1.somafm.com/u80s-128-mp3',
+    homepage: 'https://somafm.com/u80s/',
+  },
+  {
+    name: 'The Trip',
+    genre: 'Progressive Electronic',
+    url: 'https://ice1.somafm.com/thetrip-128-mp3',
+    homepage: 'https://somafm.com/thetrip/',
+  },
+  {
+    name: 'Fluid',
+    genre: 'Instrumental Hip-Hop',
+    url: 'https://ice1.somafm.com/fluid-128-mp3',
+    homepage: 'https://somafm.com/fluid/',
+  },
+  {
+    name: 'DEF CON Radio',
+    genre: 'Electronic / Hacker',
+    url: 'https://ice1.somafm.com/defcon-128-mp3',
+    homepage: 'https://somafm.com/defcon/',
+  },
+  {
+    name: 'Boot Liquor',
+    genre: 'Americana / Roots',
+    url: 'https://ice1.somafm.com/bootliquor-128-mp3',
+    homepage: 'https://somafm.com/bootliquor/',
+  },
+  {
+    name: 'cliqhop idm',
+    genre: 'IDM / Glitch',
+    url: 'https://ice1.somafm.com/cliqhop-128-mp3',
+    homepage: 'https://somafm.com/cliqhop/',
+  },
+  {
+    name: 'Sonic Universe',
+    genre: 'Jazz / Fusion',
+    url: 'https://ice1.somafm.com/sonicuniverse-128-mp3',
+    homepage: 'https://somafm.com/sonicuniverse/',
+  },
+  {
+    name: 'Illinois Street Lounge',
+    genre: 'Lounge / Exotica',
+    url: 'https://ice1.somafm.com/illstreet-128-mp3',
+    homepage: 'https://somafm.com/illstreet/',
+  },
+  {
+    name: 'Vaporwaves',
+    genre: 'Vaporwave / Future Funk',
+    url: 'https://ice1.somafm.com/vaporwaves-128-mp3',
+    homepage: 'https://somafm.com/vaporwaves/',
+  },
+];

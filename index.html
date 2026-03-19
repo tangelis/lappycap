@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌅</text></svg>" />
+    <title>LappyCap</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+      #app { width: 100%; height: 100%; position: relative; }
+
+      canvas#visualizer {
+        width: 100%; height: 100%;
+        display: block;
+        position: absolute; top: 0; left: 0;
+      }
+
+      #controls {
+        position: absolute; bottom: 0; left: 0; right: 0;
+        background: linear-gradient(transparent, rgba(0,0,0,0.85));
+        padding: 20px 24px 16px;
+        display: flex; flex-direction: column; gap: 10px;
+        transition: opacity 0.5s ease;
+        z-index: 10;
+      }
+      #controls.hidden { opacity: 0; pointer-events: none; }
+
+      .controls-row {
+        display: flex; align-items: center; gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: #fff; padding: 6px 14px;
+        border-radius: 6px; cursor: pointer;
+        font-size: 14px; font-family: system-ui;
+        transition: background 0.2s;
+      }
+      button:hover { background: rgba(255,255,255,0.25); }
+      button.active { background: rgba(100,200,255,0.3); border-color: rgba(100,200,255,0.5); }
+
+      select, input[type="text"] {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: #fff; padding: 6px 10px;
+        border-radius: 6px; font-size: 14px;
+        font-family: system-ui;
+      }
+      select option { background: #222; color: #fff; }
+
+      input[type="text"] { flex: 1; min-width: 200px; }
+      input[type="text"]::placeholder { color: rgba(255,255,255,0.4); }
+
+      input[type="range"] {
+        -webkit-appearance: none; appearance: none;
+        height: 4px; background: rgba(255,255,255,0.3);
+        border-radius: 2px; outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none;
+        width: 14px; height: 14px; border-radius: 50%;
+        background: #fff; cursor: pointer;
+      }
+
+      .label { color: rgba(255,255,255,0.6); font-size: 12px; font-family: system-ui; }
+
+      #preset-name {
+        position: absolute; top: 16px; left: 20px;
+        color: rgba(255,255,255,0.5); font-size: 13px;
+        font-family: system-ui;
+        transition: opacity 0.5s ease;
+        z-index: 10;
+        pointer-events: none;
+      }
+      #preset-name.hidden { opacity: 0; }
+
+      #loading {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        color: rgba(255,255,255,0.6);
+        font-size: 18px; font-family: system-ui;
+        z-index: 20;
+      }
+      #loading.hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="visualizer"></canvas>
+      <div id="loading">Loading LappyCap...</div>
+      <div id="preset-name"></div>
+      <div id="controls">
+        <div class="controls-row">
+          <button id="btn-prev" title="Previous preset">&#9664; Prev</button>
+          <button id="btn-next" title="Next preset">Next &#9654;</button>
+          <button id="btn-shuffle" title="Toggle shuffle">Shuffle</button>
+          <span class="label" id="preset-counter">1 / 1</span>
+          <div style="flex:1"></div>
+          <button id="btn-fullscreen" title="Toggle fullscreen">Fullscreen</button>
+        </div>
+        <div class="controls-row">
+          <span class="label">Scene:</span>
+          <select id="scene-select"></select>
+          <span class="label" style="margin-left:8px">Cycle:</span>
+          <input type="range" id="cycle-speed" min="5" max="120" value="30" style="width:100px" />
+          <span class="label" id="cycle-label">30s</span>
+          <span class="label" style="margin-left:8px">Blend:</span>
+          <input type="range" id="blend-speed" min="1" max="20" value="8" style="width:80px" />
+          <span class="label" id="blend-label">8s</span>
+        </div>
+        <div class="controls-row">
+          <span class="label">Radio:</span>
+          <select id="radio-select" style="min-width:180px">
+            <option value="">-- Select Station --</option>
+          </select>
+          <button id="btn-mic" title="Use microphone">Mic</button>
+          <input type="range" id="volume" min="0" max="100" value="50" style="width:80px" />
+          <span class="label" id="vol-label">50%</span>
+        </div>
+        <div class="controls-row">
+          <span class="label">URL:</span>
+          <input type="text" id="audio-url" placeholder="Or paste a direct audio/stream URL" />
+          <button id="btn-load-audio">Load</button>
+        </div>
+      </div>
+    </div>
+    <audio id="audio-element" crossorigin="anonymous"></audio>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
