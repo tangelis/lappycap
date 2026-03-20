@@ -70,6 +70,7 @@ class LappyCapReceiver {
   private mediaElSource: MediaElementAudioSourceNode | null = null;
   private audioEl: HTMLAudioElement;
   private castContext: CastReceiverContext | null = null;
+  private fallbackAudioEl: HTMLAudioElement | null = null;
   private started = false;
 
   constructor() {
@@ -118,31 +119,25 @@ class LappyCapReceiver {
   private async playAudio(url: string): Promise<void> {
     console.log('[Receiver] Loading audio:', url);
 
-    this.audioEl.src = url;
-    this.audioEl.crossOrigin = 'anonymous';
-    this.audioEl.volume = 1;
-
-    // Listen for errors
-    this.audioEl.onerror = (e) => {
-      console.error('[Receiver] Audio error:', this.audioEl.error?.message, this.audioEl.error?.code, e);
-      // Retry without CORS — sacrifices analyser data but gets audio playing
-      if (this.audioEl.crossOrigin) {
-        console.log('[Receiver] Retrying without crossOrigin...');
-        this.audioEl.crossOrigin = '';
-        this.audioEl.src = url;
-        this.audioEl.play().catch(err => console.error('[Receiver] Retry failed:', err));
-      }
-    };
-
     const analyser = this.ensureAudio();
 
+    // createMediaElementSource hijacks audio output — it only goes through Web Audio.
+    // If CORS blocks the analyser, there's no sound at all.
+    // Strategy: try with CORS + Web Audio first. If audio fails, fall back to a
+    // plain <audio> element (no analyser, but sound works).
     if (!this.mediaElSource) {
+      this.audioEl.crossOrigin = 'anonymous';
+      this.audioEl.src = url;
+
       try {
         this.mediaElSource = this.audioContext!.createMediaElementSource(this.audioEl);
         this.mediaElSource.connect(analyser);
+        console.log('[Receiver] Web Audio connected — reactive visuals enabled');
       } catch (err) {
-        console.error('[Receiver] Web Audio connect error:', err);
+        console.warn('[Receiver] Web Audio connect failed:', err);
       }
+    } else {
+      this.audioEl.src = url;
     }
 
     if (!this.started) {
@@ -153,11 +148,33 @@ class LappyCapReceiver {
       document.getElementById('status')!.classList.add('hidden');
     }
 
+    this.audioEl.onerror = () => {
+      const err = this.audioEl.error;
+      console.error('[Receiver] Audio error:', err?.message, 'code:', err?.code);
+
+      // CORS failure — fall back to a plain audio element without Web Audio
+      if (!this.fallbackAudioEl) {
+        console.log('[Receiver] Falling back to plain audio (no crossOrigin)');
+        this.fallbackAudioEl = new Audio();
+        this.fallbackAudioEl.src = url;
+        this.fallbackAudioEl.play().then(() => {
+          console.log('[Receiver] Fallback audio playing');
+        }).catch(e => console.error('[Receiver] Fallback audio failed:', e));
+      }
+    };
+
     try {
       await this.audioEl.play();
       console.log('[Receiver] Audio playing');
     } catch (err) {
       console.error('[Receiver] Audio play failed:', err);
+      // Try fallback immediately
+      if (!this.fallbackAudioEl) {
+        console.log('[Receiver] Falling back to plain audio (no crossOrigin)');
+        this.fallbackAudioEl = new Audio();
+        this.fallbackAudioEl.src = url;
+        this.fallbackAudioEl.play().catch(e => console.error('[Receiver] Fallback failed:', e));
+      }
     }
   }
 
