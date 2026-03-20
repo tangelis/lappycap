@@ -67,16 +67,21 @@ export class CastSender {
 
   private loadSdk(): void {
     (window as any).__onGCastApiAvailable = (isAvailable: boolean) => {
+      console.log('[Cast] SDK available:', isAvailable);
       if (isAvailable) this.initCast();
+      else console.warn('[Cast] Cast API reported unavailable');
     };
 
     const script = document.createElement('script');
     script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+    script.onerror = (e) => console.error('[Cast] Failed to load SDK:', e);
     document.head.appendChild(script);
   }
 
   private initCast(): void {
     const context = cast.framework.CastContext.getInstance();
+
+    console.log('[Cast] Initializing with APP_ID:', APP_ID);
 
     context.setOptions({
       receiverApplicationId: APP_ID,
@@ -92,7 +97,7 @@ export class CastSender {
         if (this.available !== wasAvailable) {
           this.onAvailabilityChanged?.(this.available);
         }
-        console.log('[Cast] State:', state);
+        console.log('[Cast] State:', state, '| Available:', this.available);
       },
     );
 
@@ -108,20 +113,23 @@ export class CastSender {
         if (this.connected !== wasConnected) {
           this.onSessionChanged?.(this.connected);
         }
-        console.log('[Cast] Session:', state);
+        console.log('[Cast] Session:', state, '| Connected:', this.connected);
       },
     );
 
-    console.log('[Cast] CAF SDK initialized');
+    console.log('[Cast] CAF SDK initialized, current state:', context.getCastState());
   }
 
   /** Request a cast session (shows device picker with audio + video devices) */
   async requestSession(): Promise<void> {
     try {
       const context = cast.framework.CastContext.getInstance();
+      console.log('[Cast] Requesting session... APP_ID:', APP_ID, 'castState:', context.getCastState());
       await context.requestSession();
-    } catch (err) {
+      console.log('[Cast] Session request succeeded');
+    } catch (err: any) {
       console.error('[Cast] Session request error:', err);
+      console.error('[Cast] Error details:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
     }
   }
 

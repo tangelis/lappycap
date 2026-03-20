@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌅</text></svg>" />
-    <link rel="manifest" href="/lappycap/manifest.json" />
+    <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#0a0a0a" />
     <title>LappyCap</title>
     <style>
@@ -45,6 +45,16 @@
       button.active { background: rgba(100,200,255,0.3); border-color: rgba(100,200,255,0.5); }
       button.cast-unavailable { opacity: 0.3; cursor: default; }
       button.cast-unavailable:hover { background: rgba(255,255,255,0.12); }
+
+      google-cast-launcher {
+        --connected-color: rgb(100,200,255);
+        --disconnected-color: #fff;
+        width: 28px; height: 28px;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.2s;
+      }
+      google-cast-launcher:hover { opacity: 1; }
 
       select, input[type="text"] {
         background: rgba(255,255,255,0.1);
@@ -185,6 +195,7 @@
           <button id="btn-shuffle-station" title="Random station">&#127922;</button>
           <button id="btn-mic" title="Use microphone">Mic</button>
           <button id="btn-settings" title="Settings">&#9881;</button>
+          <google-cast-launcher id="cast-launcher" title="Cast to Chromecast"></google-cast-launcher>
           <button id="btn-cast" title="Cast to Chromecast" class="cast-unavailable">Cast</button>
           <button id="btn-fullscreen" title="Toggle fullscreen">&#9974;</button>
         </div>

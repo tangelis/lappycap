@@ -344,15 +344,18 @@ class LappyCap {
 
   private setupCast(): void {
     const castBtn = document.getElementById('btn-cast')!;
+    const castLauncher = document.getElementById('cast-launcher')!;
 
     this.castSender.onAvailabilityChanged = (available) => {
       castBtn.classList.toggle('cast-unavailable', !available);
+      // Hide the fallback button if the native launcher is rendering
+      const launcherVisible = castLauncher.offsetWidth > 0;
+      castBtn.style.display = launcherVisible ? 'none' : '';
     };
 
     this.castSender.onSessionChanged = (connected) => {
       castBtn.classList.toggle('active', connected);
       if (connected && this.currentAudioUrl) {
-        // Send current state to the receiver
         this.castSender.send({
           type: 'load',
           audioUrl: this.currentAudioUrl,
