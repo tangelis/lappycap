@@ -161,6 +161,9 @@ class LappyCapReceiver {
 
     this.castContext.start();
     console.log('[Receiver] Cast receiver started');
+
+    // Auto-start with Groove Salad so the TV isn't just a black screen
+    this.startStandalone();
   }
 
   private handleMessage(senderId: string, msg: ReceiverMessage): void {
