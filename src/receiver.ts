@@ -19,13 +19,19 @@ declare const cast: {
     CastReceiverContext: {
       getInstance(): CastReceiverContext;
     };
+    PlayerManager: new () => PlayerManager;
   };
 };
 
+interface PlayerManager {
+  setMediaElement(el: HTMLMediaElement): void;
+}
+
 interface CastReceiverContext {
-  start(options?: { disableIdleTimeout?: boolean; maxInactivity?: number }): void;
+  start(options?: { disableIdleTimeout?: boolean; maxInactivity?: number; playbackConfig?: any }): void;
   stop(): void;
   setInactivityTimeout(seconds: number): void;
+  getPlayerManager(): PlayerManager;
   addCustomMessageListener(namespace: string, handler: (event: CustomMessageEvent) => void): void;
   sendCustomMessage(namespace: string, senderId: string | undefined, message: unknown): void;
 }
@@ -172,8 +178,18 @@ class LappyCapReceiver {
       this.handleMessage(event.senderId, event.data as ReceiverMessage);
     });
 
-    // Disable idle timeout — we're a continuous visualizer, not a typical media app
-    this.castContext.setInactivityTimeout(86400); // 24 hours
+    // Connect our <audio> element to the Cast player manager so the
+    // Chromecast OS sees active media playback and won't idle-kill us
+    try {
+      const playerManager = this.castContext.getPlayerManager();
+      playerManager.setMediaElement(this.audioEl);
+      console.log('[Receiver] Audio element registered with Cast PlayerManager');
+    } catch (err) {
+      console.warn('[Receiver] Could not register media element:', err);
+    }
+
+    // Disable idle timeout
+    this.castContext.setInactivityTimeout(86400);
     this.castContext.start({ maxInactivity: 86400 });
     console.log('[Receiver] Cast receiver started (idle timeout disabled)');
 
