@@ -148,6 +148,19 @@ class LappyCap {
       this.sceneManager.setBlendDuration(val);
     });
 
+    // Visual speed (FPS + audio smoothing)
+    const speedSlider = document.getElementById('vis-speed') as HTMLInputElement;
+    const speedLabel = document.getElementById('speed-label')!;
+    speedSlider.addEventListener('input', () => {
+      const fps = parseInt(speedSlider.value);
+      const pct = Math.round((fps / 60) * 100);
+      speedLabel.textContent = `${pct}%`;
+      this.visualizer.setSpeed(fps);
+      // Map speed to audio smoothing: slow speed = high smoothing (less reactive)
+      const smoothing = 0.5 + (1 - fps / 60) * 0.48;
+      this.audio.setSmoothing(smoothing);
+    });
+
     // Volume
     const volumeSlider = document.getElementById('volume') as HTMLInputElement;
     const volLabel = document.getElementById('vol-label')!;

@@ -98,6 +98,13 @@ export class AudioManager {
     this.audioEl.volume = Math.max(0, Math.min(1, v));
   }
 
+  /** Set smoothing 0-1 (higher = smoother/slower audio reactivity) */
+  setSmoothing(v: number): void {
+    if (this.analyser) {
+      this.analyser.smoothingTimeConstant = Math.max(0, Math.min(0.98, v));
+    }
+  }
+
   destroy(): void {
     this.stopMic();
     if (this.source) this.source.disconnect();

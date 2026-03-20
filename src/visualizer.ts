@@ -22,6 +22,8 @@ export class Visualizer {
   private canvas: HTMLCanvasElement;
   private animFrameId: number = 0;
   private running: boolean = false;
+  private targetFps: number = 60;
+  private lastRenderTime: number = 0;
 
   onPresetChange?: (name: string) => void;
 
@@ -92,10 +94,20 @@ export class Visualizer {
     }
   }
 
-  private render = (): void => {
+  /** Set target FPS (lower = slower visuals). Range: 10-60 */
+  setSpeed(fps: number): void {
+    this.targetFps = Math.max(10, Math.min(60, fps));
+  }
+
+  private render = (now: number = 0): void => {
     if (!this.running || !this.renderer) return;
-    this.renderer.render();
     this.animFrameId = requestAnimationFrame(this.render);
+
+    const interval = 1000 / this.targetFps;
+    if (now - this.lastRenderTime < interval) return;
+    this.lastRenderTime = now;
+
+    this.renderer.render();
   };
 
   destroy(): void {
