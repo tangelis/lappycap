@@ -20,6 +20,10 @@
 </p>
 
 <p align="center">
+  <a href="https://tangelis.github.io/lappycap/"><strong>▶️ Launch LappyCap</strong></a>
+</p>
+
+<p align="center">
   <em>Entirely original. Not even a little bit inspired by anything that may or may not have existed inside Winamp.</em>
 </p>
 
