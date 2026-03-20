@@ -23,8 +23,9 @@ declare const cast: {
 };
 
 interface CastReceiverContext {
-  start(): void;
+  start(options?: { disableIdleTimeout?: boolean; maxInactivity?: number }): void;
   stop(): void;
+  setInactivityTimeout(seconds: number): void;
   addCustomMessageListener(namespace: string, handler: (event: CustomMessageEvent) => void): void;
   sendCustomMessage(namespace: string, senderId: string | undefined, message: unknown): void;
 }
@@ -171,8 +172,10 @@ class LappyCapReceiver {
       this.handleMessage(event.senderId, event.data as ReceiverMessage);
     });
 
-    this.castContext.start();
-    console.log('[Receiver] Cast receiver started');
+    // Disable idle timeout — we're a continuous visualizer, not a typical media app
+    this.castContext.setInactivityTimeout(86400); // 24 hours
+    this.castContext.start({ maxInactivity: 86400 });
+    console.log('[Receiver] Cast receiver started (idle timeout disabled)');
 
     // Auto-start with Groove Salad so the TV isn't just a black screen
     this.startStandalone();
