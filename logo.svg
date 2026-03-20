@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 160" width="480" height="160">
+  <defs>
+    <!-- Sunrise gradient for the main icon shape -->
+    <linearGradient id="sunrise" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff6b35"/>
+      <stop offset="35%" stop-color="#f7467a"/>
+      <stop offset="70%" stop-color="#c850c0"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+
+    <!-- Secondary warm gradient for flowing accent -->
+    <linearGradient id="warmGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffb347"/>
+      <stop offset="50%" stop-color="#ff6b6b"/>
+      <stop offset="100%" stop-color="#ee5a9f"/>
+    </linearGradient>
+
+    <!-- Radial glow behind the icon -->
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#c850c0" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#c850c0" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Text gradient -->
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffb347"/>
+      <stop offset="30%" stop-color="#f7467a"/>
+      <stop offset="65%" stop-color="#c850c0"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+
+    <!-- Clip for the icon circle -->
+    <clipPath id="iconClip">
+      <circle cx="72" cy="80" r="56"/>
+    </clipPath>
+
+    <!-- Blur for glow effects -->
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="subtleGlow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Dark background -->
+  <rect width="480" height="160" rx="16" fill="#0a0a0a"/>
+
+  <!-- Subtle background glow behind icon -->
+  <circle cx="72" cy="80" r="72" fill="url(#bgGlow)"/>
+
+  <!-- Icon mark: circular container with flowing organic shapes -->
+  <g clip-path="url(#iconClip)">
+    <!-- Dark circle base -->
+    <circle cx="72" cy="80" r="56" fill="#111111"/>
+
+    <!-- Organic lava-lamp blob 1 — large warm shape rising from bottom -->
+    <path d="M 20 136 Q 28 105, 48 95 Q 60 88, 55 72 Q 50 55, 62 45 Q 78 32, 72 18 Q 68 8, 82 10 Q 100 14, 95 35 Q 90 52, 100 65 Q 112 80, 105 100 Q 98 120, 110 136 Z"
+          fill="url(#sunrise)" opacity="0.9" filter="url(#softGlow)"/>
+
+    <!-- Organic lava-lamp blob 2 — secondary flowing shape -->
+    <path d="M 16 90 Q 25 78, 38 82 Q 52 86, 48 70 Q 44 54, 56 50 Q 65 47, 60 38 Q 55 28, 40 32 Q 22 38, 18 55 Q 14 72, 16 90 Z"
+          fill="url(#warmGlow)" opacity="0.6"/>
+
+    <!-- Small floating orb — top right -->
+    <circle cx="90" cy="42" r="8" fill="#ffb347" opacity="0.5" filter="url(#subtleGlow)"/>
+
+    <!-- Small floating orb — bottom left -->
+    <circle cx="42" cy="110" r="5" fill="#f7467a" opacity="0.4" filter="url(#subtleGlow)"/>
+
+    <!-- Thin sound-wave arc lines overlaid -->
+    <path d="M 30 80 Q 52 60, 72 80 Q 92 100, 114 80"
+          fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.2"/>
+    <path d="M 26 80 Q 50 50, 72 80 Q 94 110, 118 80"
+          fill="none" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.12"/>
+
+    <!-- Circle border ring -->
+    <circle cx="72" cy="80" r="55" fill="none" stroke="url(#sunrise)" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- Wordmark: "LappyCap" -->
+  <text x="148" y="93" font-family="'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="46" font-weight="700" letter-spacing="-1" fill="url(#textGrad)">
+    LappyCap
+  </text>
+
+  <!-- Tagline -->
+  <text x="150" y="116" font-family="'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="12" font-weight="400" letter-spacing="3" fill="#666666" text-transform="uppercase">
+    MUSIC VISUALIZER
+  </text>
+</svg>

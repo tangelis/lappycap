@@ -63,6 +63,17 @@ class LappyCap {
       this.populateSceneSelector();
       this.populateRadioSelector();
 
+      // Apply URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const sceneParam = urlParams.get('scene');
+      if (sceneParam) {
+        const matchedScene = scenes.find(s => s.name.toLowerCase() === sceneParam.toLowerCase());
+        if (matchedScene) {
+          this.loadScene(matchedScene);
+          (document.getElementById('scene-select') as HTMLSelectElement).value = matchedScene.name;
+        }
+      }
+
       loading.classList.add('hidden');
 
       // Show a prompt
@@ -70,15 +81,18 @@ class LappyCap {
       nameEl.textContent = '\u266B  Click anywhere or press any key to start the vibes  \u266B';
       nameEl.classList.add('splash');
 
-      // Wait for user interaction to start audio context + auto-play Groove Salad
+      // Wait for user interaction to start audio context + auto-play a station
       const startOnInteraction = async () => {
         document.removeEventListener('click', startOnInteraction);
         document.removeEventListener('keydown', startOnInteraction);
         await this.startVisualizer();
-        // Auto-play Groove Salad on first interaction
-        const defaultStation = radioStations[0];
-        await this.playAudioURL(defaultStation.url);
-        (document.getElementById('radio-select') as HTMLSelectElement).value = defaultStation.url;
+        // Use station URL param if provided, otherwise default to Groove Salad
+        const stationParam = urlParams.get('station');
+        const station = stationParam
+          ? (radioStations.find(r => r.name.toLowerCase() === stationParam.toLowerCase()) ?? radioStations[0])
+          : radioStations[0];
+        await this.playAudioURL(station.url);
+        (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
       };
       document.addEventListener('click', startOnInteraction);
       document.addEventListener('keydown', startOnInteraction);
@@ -123,6 +137,15 @@ class LappyCap {
       e.stopPropagation();
       const isShuffled = this.sceneManager.toggleShuffle();
       shuffleBtn.classList.toggle('active', isShuffled);
+    });
+
+    // Settings panel toggle
+    const settingsBtn = document.getElementById('btn-settings')!;
+    const settingsPanel = document.getElementById('settings-panel')!;
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = settingsPanel.classList.toggle('open');
+      settingsBtn.classList.toggle('active', isOpen);
     });
 
     // Fullscreen
@@ -185,6 +208,15 @@ class LappyCap {
       }
     });
 
+    // Shuffle station — pick a random radio station
+    document.getElementById('btn-shuffle-station')!.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const idx = Math.floor(Math.random() * radioStations.length);
+      const station = radioStations[idx];
+      (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
+      await this.playAudioURL(station.url);
+    });
+
     // Custom audio URL loading
     document.getElementById('btn-load-audio')!.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -239,8 +271,19 @@ class LappyCap {
         case 's':
           this.sceneManager.toggleShuffle();
           break;
+        case 'r': {
+          const idx = Math.floor(Math.random() * radioStations.length);
+          const station = radioStations[idx];
+          (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
+          this.playAudioURL(station.url);
+          break;
+        }
         case 'Escape':
+          this.hideHelp();
           this.showControls();
+          break;
+        case '?':
+          this.toggleHelp();
           break;
       }
     });
@@ -366,6 +409,16 @@ class LappyCap {
       if (this.hideTimer) clearTimeout(this.hideTimer);
     });
     controls.addEventListener('mouseleave', show);
+  }
+
+  private toggleHelp(): void {
+    const overlay = document.getElementById('help-overlay')!;
+    overlay.classList.toggle('hidden');
+  }
+
+  private hideHelp(): void {
+    const overlay = document.getElementById('help-overlay')!;
+    overlay.classList.add('hidden');
   }
 
   private showControls(): void {

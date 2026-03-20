@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌅</text></svg>" />
+    <link rel="manifest" href="/lappycap/manifest.json" />
+    <meta name="theme-color" content="#0a0a0a" />
     <title>LappyCap</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -69,6 +71,18 @@
 
       .label { color: rgba(255,255,255,0.6); font-size: 12px; font-family: system-ui; }
 
+      #settings-panel {
+        display: none; flex-direction: column; gap: 10px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        padding-top: 10px;
+      }
+      #settings-panel.open { display: flex; }
+      .settings-group-label {
+        color: rgba(255,255,255,0.35); font-size: 11px;
+        font-family: system-ui; text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
       #preset-name {
         position: absolute; top: 16px; left: 20px;
         color: rgba(255,255,255,0.5); font-size: 13px;
@@ -99,6 +113,57 @@
         z-index: 20;
       }
       #loading.hidden { display: none; }
+
+      #help-overlay {
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.85);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 100;
+      }
+      #help-overlay.hidden { display: none; }
+
+      .help-box {
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 10px;
+        padding: 28px 36px;
+        font-family: system-ui;
+        color: #fff;
+        min-width: 320px;
+      }
+      .help-box h2 {
+        font-size: 16px;
+        font-weight: 600;
+        color: rgba(255,255,255,0.9);
+        margin-bottom: 18px;
+        letter-spacing: 0.5px;
+      }
+      .help-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 10px 20px;
+        align-items: center;
+      }
+      .help-key {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.25);
+        border-radius: 5px;
+        padding: 3px 9px;
+        font-size: 13px;
+        font-family: system-ui;
+        white-space: nowrap;
+        text-align: center;
+      }
+      .help-desc {
+        font-size: 13px;
+        color: rgba(255,255,255,0.7);
+      }
+      .help-dismiss {
+        margin-top: 20px;
+        font-size: 11px;
+        color: rgba(255,255,255,0.35);
+        text-align: center;
+      }
     </style>
   </head>
   <body>
@@ -108,40 +173,66 @@
       <div id="preset-name"></div>
       <div id="controls">
         <div class="controls-row">
-          <button id="btn-prev" title="Previous preset">&#9664; Prev</button>
-          <button id="btn-next" title="Next preset">Next &#9654;</button>
+          <button id="btn-prev" title="Previous preset">&#9664;</button>
+          <button id="btn-next" title="Next preset">&#9654;</button>
           <button id="btn-shuffle" title="Toggle shuffle">Shuffle</button>
           <span class="label" id="preset-counter">1 / 1</span>
           <div style="flex:1"></div>
-          <button id="btn-cast" title="Cast to Chromecast" class="cast-unavailable">Cast</button>
-          <button id="btn-fullscreen" title="Toggle fullscreen">Fullscreen</button>
-        </div>
-        <div class="controls-row">
-          <span class="label">Scene:</span>
           <select id="scene-select"></select>
-          <span class="label" style="margin-left:8px">Cycle:</span>
-          <input type="range" id="cycle-speed" min="5" max="120" value="30" style="width:100px" />
-          <span class="label" id="cycle-label">30s</span>
-          <span class="label" style="margin-left:8px">Blend:</span>
-          <input type="range" id="blend-speed" min="1" max="20" value="8" style="width:80px" />
-          <span class="label" id="blend-label">8s</span>
-          <span class="label" style="margin-left:8px">Speed:</span>
-          <input type="range" id="vis-speed" min="10" max="60" value="60" style="width:80px" />
-          <span class="label" id="speed-label">100%</span>
-        </div>
-        <div class="controls-row">
-          <span class="label">Radio:</span>
-          <select id="radio-select" style="min-width:180px">
-            <option value="">-- Select Station --</option>
+          <select id="radio-select" style="min-width:160px">
+            <option value="">-- Station --</option>
           </select>
+          <button id="btn-shuffle-station" title="Random station">&#127922;</button>
           <button id="btn-mic" title="Use microphone">Mic</button>
-          <input type="range" id="volume" min="0" max="100" value="100" style="width:80px" />
-          <span class="label" id="vol-label">100%</span>
+          <button id="btn-settings" title="Settings">&#9881;</button>
+          <button id="btn-cast" title="Cast to Chromecast" class="cast-unavailable">Cast</button>
+          <button id="btn-fullscreen" title="Toggle fullscreen">&#9974;</button>
         </div>
-        <div class="controls-row">
-          <span class="label">URL:</span>
-          <input type="text" id="audio-url" placeholder="Or paste a direct audio/stream URL" />
-          <button id="btn-load-audio">Load</button>
+        <div id="settings-panel">
+          <div class="controls-row">
+            <span class="settings-group-label">VFX</span>
+            <span class="label">Cycle:</span>
+            <input type="range" id="cycle-speed" min="5" max="120" value="30" style="width:100px" />
+            <span class="label" id="cycle-label">30s</span>
+            <span class="label" style="margin-left:4px">Blend:</span>
+            <input type="range" id="blend-speed" min="1" max="20" value="8" style="width:80px" />
+            <span class="label" id="blend-label">8s</span>
+            <span class="label" style="margin-left:4px">Speed:</span>
+            <input type="range" id="vis-speed" min="10" max="60" value="60" style="width:80px" />
+            <span class="label" id="speed-label">100%</span>
+          </div>
+          <div class="controls-row">
+            <span class="settings-group-label">Audio</span>
+            <span class="label">Vol:</span>
+            <input type="range" id="volume" min="0" max="100" value="100" style="width:80px" />
+            <span class="label" id="vol-label">100%</span>
+            <div style="flex:1"></div>
+            <span class="label">URL:</span>
+            <input type="text" id="audio-url" placeholder="Paste audio/stream URL" />
+            <button id="btn-load-audio">Load</button>
+          </div>
+        </div>
+      </div>
+      <div id="help-overlay" class="hidden">
+        <div class="help-box">
+          <h2>Keyboard Shortcuts</h2>
+          <div class="help-grid">
+            <span class="help-key">n &nbsp;/&nbsp; →</span>
+            <span class="help-desc">Next preset</span>
+            <span class="help-key">p &nbsp;/&nbsp; ←</span>
+            <span class="help-desc">Previous preset</span>
+            <span class="help-key">f</span>
+            <span class="help-desc">Toggle fullscreen</span>
+            <span class="help-key">s</span>
+            <span class="help-desc">Toggle shuffle</span>
+            <span class="help-key">r</span>
+            <span class="help-desc">Random station</span>
+            <span class="help-key">Esc</span>
+            <span class="help-desc">Show controls</span>
+            <span class="help-key">?</span>
+            <span class="help-desc">Show / hide this help</span>
+          </div>
+          <div class="help-dismiss">Press <strong>?</strong> or <strong>Esc</strong> to close</div>
         </div>
       </div>
     </div>

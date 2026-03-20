@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="s" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff6b35"/>
+      <stop offset="35%" stop-color="#f7467a"/>
+      <stop offset="70%" stop-color="#c850c0"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="w" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffb347"/>
+      <stop offset="50%" stop-color="#ff6b6b"/>
+      <stop offset="100%" stop-color="#ee5a9f"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </radialGradient>
+    <clipPath id="c">
+      <circle cx="256" cy="256" r="240"/>
+    </clipPath>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="smGlow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Dark circular background -->
+  <circle cx="256" cy="256" r="256" fill="#0a0a0a"/>
+  <circle cx="256" cy="256" r="240" fill="url(#bg)"/>
+
+  <g clip-path="url(#c)">
+    <!-- Primary organic lava-lamp blob -->
+    <path d="M 80 512 Q 128 384, 192 336 Q 240 288, 208 224 Q 176 144, 240 96 Q 320 48, 352 128 Q 384 208, 432 256 Q 480 320, 448 416 Q 416 512, 480 512 Z"
+          fill="url(#s)" opacity="0.9" filter="url(#glow)"/>
+
+    <!-- Secondary accent blob -->
+    <path d="M 32 352 Q 96 288, 160 320 Q 208 352, 176 256 Q 144 160, 208 144 Q 128 128, 64 192 Q 16 272, 32 352 Z"
+          fill="url(#w)" opacity="0.55"/>
+
+    <!-- Floating orbs -->
+    <circle cx="352" cy="128" r="40" fill="#ffb347" opacity="0.5" filter="url(#smGlow)"/>
+    <circle cx="128" cy="400" r="24" fill="#f7467a" opacity="0.4" filter="url(#smGlow)"/>
+    <circle cx="400" cy="380" r="16" fill="#c850c0" opacity="0.3" filter="url(#smGlow)"/>
+
+    <!-- Sound-wave arcs -->
+    <path d="M 96 256 Q 176 176, 256 256 Q 336 336, 416 256"
+          fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.18"/>
+    <path d="M 72 256 Q 164 148, 256 256 Q 348 364, 440 256"
+          fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.1"/>
+    <path d="M 120 256 Q 188 204, 256 256 Q 324 308, 392 256"
+          fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.12"/>
+  </g>
+
+  <!-- Border ring -->
+  <circle cx="256" cy="256" r="236" fill="none" stroke="url(#s)" stroke-width="4" opacity="0.5"/>
+</svg>
