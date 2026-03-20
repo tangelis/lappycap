@@ -94,6 +94,10 @@ export class AudioManager {
     }
   }
 
+  get isMicActive(): boolean {
+    return this.usingMic;
+  }
+
   setVolume(v: number): void {
     this.audioEl.volume = Math.max(0, Math.min(1, v));
   }

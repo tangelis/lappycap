@@ -57,6 +57,7 @@ export type CastMessage =
 export class CastSender {
   private available = false;
   private connected = false;
+  private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
 
   onAvailabilityChanged?: (available: boolean) => void;
   onSessionChanged?: (connected: boolean) => void;
@@ -111,6 +112,11 @@ export class CastSender {
           state === cast.framework.SessionState.SESSION_RESUMED;
 
         if (this.connected !== wasConnected) {
+          if (this.connected) {
+            this.startKeepalive();
+          } else {
+            this.stopKeepalive();
+          }
           this.onSessionChanged?.(this.connected);
         }
         console.log('[Cast] Session:', state, '| Connected:', this.connected);
@@ -149,5 +155,21 @@ export class CastSender {
 
   get isAvailable(): boolean {
     return this.available;
+  }
+
+  private startKeepalive(): void {
+    this.stopKeepalive();
+    // Ping the receiver every 2 minutes to prevent idle timeout
+    this.keepaliveTimer = setInterval(() => {
+      this.send({ type: 'ping' } as any);
+      console.log('[Cast] Keepalive ping sent');
+    }, 120_000);
+  }
+
+  private stopKeepalive(): void {
+    if (this.keepaliveTimer) {
+      clearInterval(this.keepaliveTimer);
+      this.keepaliveTimer = null;
+    }
   }
 }

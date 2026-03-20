@@ -230,15 +230,21 @@ class LappyCap {
       }
     });
 
-    // Mic input
-    document.getElementById('btn-mic')!.addEventListener('click', async (e) => {
+    // Mic input (toggle)
+    const micBtn = document.getElementById('btn-mic')!;
+    micBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      try {
-        // Clear radio selection
-        (document.getElementById('radio-select') as HTMLSelectElement).value = '';
-        await this.audio.startMic();
-      } catch (err) {
-        console.error('Mic error:', err);
+      if (this.audio.isMicActive) {
+        this.audio.stopMic();
+        micBtn.classList.remove('active');
+      } else {
+        try {
+          (document.getElementById('radio-select') as HTMLSelectElement).value = '';
+          await this.audio.startMic();
+          micBtn.classList.add('active');
+        } catch (err) {
+          console.error('Mic error:', err);
+        }
       }
     });
 
