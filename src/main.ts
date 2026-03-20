@@ -4,13 +4,16 @@ import { SceneManager } from './scene-manager';
 import { loadPresetsForScene } from './preset-loader';
 import { scenes } from './scenes';
 import { radioStations } from './radio-stations';
+import { CastSender } from './cast-sender';
 
 class LappyCap {
   private audio: AudioManager;
   private visualizer: Visualizer;
   private sceneManager: SceneManager;
+  private castSender: CastSender;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private audioSourceCreated = false;
+  private currentAudioUrl: string = '';
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -19,6 +22,8 @@ class LappyCap {
     this.audio = new AudioManager(audioEl);
     this.visualizer = new Visualizer(canvas);
     this.sceneManager = new SceneManager(scenes[0]);
+    this.castSender = new CastSender();
+    this.setupCast();
 
     this.init();
   }
@@ -262,9 +267,14 @@ class LappyCap {
     document.getElementById('blend-label')!.textContent = `${scene.blendDuration}s`;
 
     this.sceneManager.start();
+
+    if (this.castSender.isConnected) {
+      this.castSender.send({ type: 'scene', sceneName: scene.name });
+    }
   }
 
   private async playAudioURL(url: string): Promise<void> {
+    this.currentAudioUrl = url;
     try {
       if (this.audioSourceCreated) {
         const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
@@ -274,11 +284,44 @@ class LappyCap {
         await this.audio.loadURL(url);
         this.audioSourceCreated = true;
       }
+      // Forward to Chromecast if connected
+      if (this.castSender.isConnected) {
+        this.castSender.send({
+          type: 'load',
+          audioUrl: url,
+          sceneName: this.sceneManager.getScene().name,
+        });
+      }
     } catch (err) {
       console.error('Failed to load audio:', err);
       const nameEl = document.getElementById('preset-name')!;
       nameEl.textContent = `Audio error: ${err instanceof Error ? err.message : 'Failed to load'}`;
     }
+  }
+
+  private setupCast(): void {
+    const castBtn = document.getElementById('btn-cast')!;
+
+    this.castSender.onAvailabilityChanged = (available) => {
+      castBtn.classList.toggle('cast-unavailable', !available);
+    };
+
+    this.castSender.onSessionChanged = (connected) => {
+      castBtn.classList.toggle('active', connected);
+      if (connected && this.currentAudioUrl) {
+        // Send current state to the receiver
+        this.castSender.send({
+          type: 'load',
+          audioUrl: this.currentAudioUrl,
+          sceneName: this.sceneManager.getScene().name,
+        });
+      }
+    };
+
+    castBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.castSender.requestSession();
+    });
   }
 
   private populateRadioSelector(): void {

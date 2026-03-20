@@ -17,12 +17,14 @@ interface ButterchurnRenderer {
   render(): void;
 }
 
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 export class Visualizer {
   private renderer: ButterchurnRenderer | null = null;
   private canvas: HTMLCanvasElement;
   private animFrameId: number = 0;
   private running: boolean = false;
-  private targetFps: number = 60;
+  private targetFps: number = isMobile ? 30 : 60;
   private lastRenderTime: number = 0;
 
   onPresetChange?: (name: string) => void;
@@ -34,9 +36,13 @@ export class Visualizer {
   init(analyser: AnalyserNode): void {
     this.resize();
 
-    console.log(`[LappyCap] Initializing butterchurn: canvas ${this.canvas.width}x${this.canvas.height}`);
+    // Mobile: reduce mesh density and cap DPR to keep GPU happy
+    const mesh = isMobile
+      ? { meshWidth: 24, meshHeight: 18 }
+      : { meshWidth: 48, meshHeight: 36 };
 
-    // butterchurn creates its own WebGL context from the canvas element
+    console.log(`[LappyCap] Init butterchurn: ${this.canvas.width}x${this.canvas.height}, mobile=${isMobile}, mesh=${mesh.meshWidth}x${mesh.meshHeight}`);
+
     try {
       this.renderer = butterchurn.createVisualizer(
         analyser.context,
@@ -44,9 +50,8 @@ export class Visualizer {
         {
           width: this.canvas.width,
           height: this.canvas.height,
-          meshWidth: 48,
-          meshHeight: 36,
-          pixelRatio: window.devicePixelRatio || 1,
+          ...mesh,
+          pixelRatio: this.getPixelRatio(),
         }
       );
     } catch (err) {
@@ -60,12 +65,18 @@ export class Visualizer {
     window.addEventListener('resize', this.handleResize);
   }
 
+  /** Cap DPR on mobile to avoid rendering millions of unnecessary pixels */
+  private getPixelRatio(): number {
+    const dpr = window.devicePixelRatio || 1;
+    return isMobile ? Math.min(dpr, 1.5) : dpr;
+  }
+
   private handleResize = (): void => {
     this.resize();
   };
 
   resize(): void {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getPixelRatio();
     this.canvas.width = window.innerWidth * dpr;
     this.canvas.height = window.innerHeight * dpr;
 

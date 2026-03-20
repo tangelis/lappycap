@@ -41,6 +41,8 @@
       }
       button:hover { background: rgba(255,255,255,0.25); }
       button.active { background: rgba(100,200,255,0.3); border-color: rgba(100,200,255,0.5); }
+      button.cast-unavailable { opacity: 0.3; cursor: default; }
+      button.cast-unavailable:hover { background: rgba(255,255,255,0.12); }
 
       select, input[type="text"] {
         background: rgba(255,255,255,0.1);
@@ -111,6 +113,7 @@
           <button id="btn-shuffle" title="Toggle shuffle">Shuffle</button>
           <span class="label" id="preset-counter">1 / 1</span>
           <div style="flex:1"></div>
+          <button id="btn-cast" title="Cast to Chromecast" class="cast-unavailable">Cast</button>
           <button id="btn-fullscreen" title="Toggle fullscreen">Fullscreen</button>
         </div>
         <div class="controls-row">
@@ -132,8 +135,8 @@
             <option value="">-- Select Station --</option>
           </select>
           <button id="btn-mic" title="Use microphone">Mic</button>
-          <input type="range" id="volume" min="0" max="100" value="50" style="width:80px" />
-          <span class="label" id="vol-label">50%</span>
+          <input type="range" id="volume" min="0" max="100" value="100" style="width:80px" />
+          <span class="label" id="vol-label">100%</span>
         </div>
         <div class="controls-row">
           <span class="label">URL:</span>
