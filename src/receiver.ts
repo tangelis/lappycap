@@ -116,14 +116,33 @@ class LappyCapReceiver {
   }
 
   private async playAudio(url: string): Promise<void> {
-    const analyser = this.ensureAudio();
+    console.log('[Receiver] Loading audio:', url);
 
     this.audioEl.src = url;
     this.audioEl.crossOrigin = 'anonymous';
+    this.audioEl.volume = 1;
+
+    // Listen for errors
+    this.audioEl.onerror = (e) => {
+      console.error('[Receiver] Audio error:', this.audioEl.error?.message, this.audioEl.error?.code, e);
+      // Retry without CORS — sacrifices analyser data but gets audio playing
+      if (this.audioEl.crossOrigin) {
+        console.log('[Receiver] Retrying without crossOrigin...');
+        this.audioEl.crossOrigin = '';
+        this.audioEl.src = url;
+        this.audioEl.play().catch(err => console.error('[Receiver] Retry failed:', err));
+      }
+    };
+
+    const analyser = this.ensureAudio();
 
     if (!this.mediaElSource) {
-      this.mediaElSource = this.audioContext!.createMediaElementSource(this.audioEl);
-      this.mediaElSource.connect(analyser);
+      try {
+        this.mediaElSource = this.audioContext!.createMediaElementSource(this.audioEl);
+        this.mediaElSource.connect(analyser);
+      } catch (err) {
+        console.error('[Receiver] Web Audio connect error:', err);
+      }
     }
 
     if (!this.started) {
@@ -134,7 +153,12 @@ class LappyCapReceiver {
       document.getElementById('status')!.classList.add('hidden');
     }
 
-    await this.audioEl.play();
+    try {
+      await this.audioEl.play();
+      console.log('[Receiver] Audio playing');
+    } catch (err) {
+      console.error('[Receiver] Audio play failed:', err);
+    }
   }
 
   private initCast(): void {

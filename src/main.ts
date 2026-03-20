@@ -14,6 +14,7 @@ class LappyCap {
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private audioSourceCreated = false;
   private currentAudioUrl: string = '';
+  private preCastVolume: number = 1;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -364,18 +365,15 @@ class LappyCap {
             sceneName: this.sceneManager.getScene().name,
           });
         }
-        // Mute local audio and stop local visualizer — Chromecast handles both now
+        // Silence local audio — Chromecast plays its own stream
+        // Use volume=0 instead of muted to keep the stream alive for the analyser
         const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
-        audioEl.muted = true;
-        this.visualizer.stop();
-        const nameEl = document.getElementById('preset-name')!;
-        nameEl.textContent = 'Casting to Chromecast';
-        nameEl.classList.remove('hidden');
+        this.preCastVolume = audioEl.volume;
+        audioEl.volume = 0;
       } else {
-        // Resume local playback
+        // Restore local volume
         const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
-        audioEl.muted = false;
-        this.visualizer.start();
+        audioEl.volume = this.preCastVolume ?? 1;
       }
     };
 
