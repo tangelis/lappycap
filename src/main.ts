@@ -355,12 +355,27 @@ class LappyCap {
 
     this.castSender.onSessionChanged = (connected) => {
       castBtn.classList.toggle('active', connected);
-      if (connected && this.currentAudioUrl) {
-        this.castSender.send({
-          type: 'load',
-          audioUrl: this.currentAudioUrl,
-          sceneName: this.sceneManager.getScene().name,
-        });
+      if (connected) {
+        // Send current state to receiver
+        if (this.currentAudioUrl) {
+          this.castSender.send({
+            type: 'load',
+            audioUrl: this.currentAudioUrl,
+            sceneName: this.sceneManager.getScene().name,
+          });
+        }
+        // Mute local audio and stop local visualizer — Chromecast handles both now
+        const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+        audioEl.muted = true;
+        this.visualizer.stop();
+        const nameEl = document.getElementById('preset-name')!;
+        nameEl.textContent = 'Casting to Chromecast';
+        nameEl.classList.remove('hidden');
+      } else {
+        // Resume local playback
+        const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+        audioEl.muted = false;
+        this.visualizer.start();
       }
     };
 
