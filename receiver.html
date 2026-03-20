@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>LappyCap Receiver</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+      canvas#visualizer { width: 100%; height: 100%; display: block; }
+      #status {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        color: rgba(255,255,255,0.4);
+        font-size: 24px; font-family: system-ui;
+        text-align: center;
+      }
+      #status.hidden { display: none; }
+      #preset-name {
+        position: absolute; top: 16px; left: 20px;
+        color: rgba(255,255,255,0.3); font-size: 13px;
+        font-family: system-ui; pointer-events: none;
+        transition: opacity 2s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="visualizer"></canvas>
+    <div id="status">LappyCap<br><small>Waiting for sender...</small></div>
+    <div id="preset-name"></div>
+    <audio id="audio-element" crossorigin="anonymous"></audio>
+    <script type="module" src="/src/receiver.ts"></script>
+  </body>
+</html>
