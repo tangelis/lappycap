@@ -71,11 +71,23 @@
         position: absolute; top: 16px; left: 20px;
         color: rgba(255,255,255,0.5); font-size: 13px;
         font-family: system-ui;
-        transition: opacity 0.5s ease;
+        transition: opacity 0.5s ease, font-size 0.6s ease, top 0.6s ease, left 0.6s ease, transform 0.6s ease;
         z-index: 10;
         pointer-events: none;
       }
       #preset-name.hidden { opacity: 0; }
+      #preset-name.splash {
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 22px;
+        color: rgba(255,255,255,0.6);
+        letter-spacing: 1px;
+        animation: pulse-glow 2.5s ease-in-out infinite;
+      }
+      @keyframes pulse-glow {
+        0%, 100% { color: rgba(255,255,255,0.4); }
+        50% { color: rgba(180,220,255,0.8); }
+      }
 
       #loading {
         position: absolute; top: 50%; left: 50%;

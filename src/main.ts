@@ -62,13 +62,18 @@ class LappyCap {
 
       // Show a prompt
       const nameEl = document.getElementById('preset-name')!;
-      nameEl.textContent = 'Click anywhere or press a key to start';
+      nameEl.textContent = '\u266B  Click anywhere or press any key to start the vibes  \u266B';
+      nameEl.classList.add('splash');
 
-      // Wait for user interaction to start audio context
+      // Wait for user interaction to start audio context + auto-play Groove Salad
       const startOnInteraction = async () => {
         document.removeEventListener('click', startOnInteraction);
         document.removeEventListener('keydown', startOnInteraction);
         await this.startVisualizer();
+        // Auto-play Groove Salad on first interaction
+        const defaultStation = radioStations[0];
+        await this.playAudioURL(defaultStation.url);
+        (document.getElementById('radio-select') as HTMLSelectElement).value = defaultStation.url;
       };
       document.addEventListener('click', startOnInteraction);
       document.addEventListener('keydown', startOnInteraction);
@@ -81,6 +86,8 @@ class LappyCap {
 
   private async startVisualizer(): Promise<void> {
     try {
+      const nameEl = document.getElementById('preset-name')!;
+      nameEl.classList.remove('splash');
       const analyser = this.audio.getAnalyser();
       this.visualizer.init(analyser);
       this.sceneManager.start();
