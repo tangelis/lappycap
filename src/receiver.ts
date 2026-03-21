@@ -89,6 +89,7 @@ class LappyCapReceiver {
   private started = false;
   private currentAudioUrl: string = '';
   private audioWatchdog: ReturnType<typeof setInterval> | null = null;
+  private stationNameTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -280,6 +281,10 @@ class LappyCapReceiver {
         this.playAudio(msg.audioUrl).catch(err => {
           console.error('[Receiver] Audio load failed:', err);
         });
+        // Show station name on TV if provided
+        if (msg.stationName) {
+          this.showStationName(msg.stationName);
+        }
         // Acknowledge
         this.castContext?.sendCustomMessage(NAMESPACE, senderId, {
           type: 'status',
@@ -313,6 +318,24 @@ class LappyCapReceiver {
     }
   }
 
+  /** Briefly display station name on screen: fade in 0.5s, hold 3s, fade out 1.5s */
+  private showStationName(name: string): void {
+    const el = document.getElementById('station-name')!;
+    if (this.stationNameTimer) clearTimeout(this.stationNameTimer);
+
+    el.textContent = `♪ ${name}`;
+    el.className = 'fade-in';
+
+    this.stationNameTimer = setTimeout(() => {
+      el.className = 'fade-out';
+      // Clean up text after fade-out completes
+      this.stationNameTimer = setTimeout(() => {
+        el.textContent = '';
+        el.className = '';
+      }, 1500);
+    }, 3000);
+  }
+
   /** Standalone mode for browser testing (no Cast device needed) */
   private startStandalone(): void {
     const status = document.getElementById('status')!;
@@ -322,6 +345,7 @@ class LappyCapReceiver {
     const defaultStation = radioStations[0];
     this.playAudio(defaultStation.url).then(() => {
       status.classList.add('hidden');
+      this.showStationName(defaultStation.name);
     }).catch(err => {
       status.innerHTML = `Error: ${err.message}`;
     });
