@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>LappyCap Remote</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface-hover: #1e1e1e;
+      --border: #2a2a2a;
+      --text: #e0e0e0;
+      --text-dim: #888;
+      --accent: rgb(100, 200, 255);
+      --accent-dim: rgba(100, 200, 255, 0.15);
+      --accent-hover: rgba(100, 200, 255, 0.25);
+      --danger: #ff6b6b;
+      --success: #4ecf73;
+      --radius: 12px;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100dvh;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    body {
+      padding: 0 0 env(safe-area-inset-bottom, 20px) 0;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header h1 span { font-size: 24px; }
+
+    google-cast-launcher {
+      --connected-color: var(--accent);
+      --disconnected-color: var(--text-dim);
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+    }
+
+    .cast-btn-fallback {
+      display: none;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Status bar */
+    .status-bar {
+      padding: 12px 20px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      min-height: 44px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .status-dot.connected { background: var(--success); }
+    .status-dot.connecting { background: #f0ad4e; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-text { color: var(--text-dim); }
+    .status-text.connected { color: var(--text); }
+
+    /* Sections */
+    .section {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Select dropdowns */
+    .select-wrap {
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    .select-wrap select {
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 40px 12px 16px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 16px;
+      font-family: inherit;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .select-wrap select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .select-wrap::after {
+      content: '▾';
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .select-wrap select option {
+      background: #1a1a1a;
+      color: var(--text);
+      padding: 8px;
+    }
+
+    /* Buttons */
+    .btn {
+      min-height: 48px;
+      padding: 12px 20px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 16px;
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .btn:active {
+      background: var(--surface-hover);
+      transform: scale(0.97);
+    }
+
+    .btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-accent {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-accent:active {
+      background: var(--accent-hover);
+    }
+
+    .btn-full { width: 100%; }
+
+    /* Control grid */
+    .controls-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn-prev { border-radius: var(--radius) 4px 4px var(--radius); }
+    .btn-next { border-radius: 4px var(--radius) var(--radius) 4px; }
+
+    .btn-shuffle {
+      font-size: 14px;
+    }
+
+    .btn-shuffle.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Volume */
+    .volume-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .volume-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      width: 28px;
+      text-align: center;
+    }
+
+    .volume-slider-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 48px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-top: -11px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      border: none;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .volume-pct {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-dim);
+      min-width: 40px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Now Playing */
+    .now-playing {
+      padding: 12px 20px;
+      font-size: 13px;
+      color: var(--text-dim);
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .now-playing .np-station {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .now-playing .np-scene {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* Settings section */
+    .settings-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .setting-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+
+    .setting-group input[type="number"] {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 16px;
+      font-family: inherit;
+      text-align: center;
+    }
+
+    .setting-group input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* Footer */
+    .footer {
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* Disabled overlay when not connected */
+    .controls-disabled {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 14px;
+      z-index: 100;
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <h1><span>🎬</span> LappyCap Remote</h1>
+    <google-cast-launcher id="castLauncher"></google-cast-launcher>
+    <button class="cast-btn-fallback" id="castFallback" onclick="requestCast()">Cast</button>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar" id="statusBar">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Looking for Cast devices…</span>
+  </div>
+
+  <!-- Now Playing -->
+  <div class="now-playing" id="nowPlaying" style="display:none;">
+    ▶ <span class="np-station" id="npStation"></span> · <span class="np-scene" id="npScene"></span>
+  </div>
+
+  <!-- Controls wrapper -->
+  <div id="controlsWrap" class="controls-disabled">
+
+    <!-- Station -->
+    <div class="section">
+      <div class="section-label">🎵 Station</div>
+      <div class="select-wrap">
+        <select id="stationSelect" onchange="onStationChange()">
+          <!-- populated by JS -->
+        </select>
+      </div>
+      <button class="btn btn-full" onclick="randomStation()">🎲 Random Station</button>
+    </div>
+
+    <!-- Scene -->
+    <div class="section">
+      <div class="section-label">🎨 Scene</div>
+      <div class="select-wrap">
+        <select id="sceneSelect" onchange="onSceneChange()">
+          <!-- populated by JS -->
+        </select>
+      </div>
+    </div>
+
+    <!-- Preset controls -->
+    <div class="section">
+      <div class="section-label">🎛️ Presets</div>
+      <div class="controls-row">
+        <button class="btn btn-prev" onclick="sendMsg({type:'prev'})">◀ Prev</button>
+        <button class="btn btn-shuffle btn-accent" id="shuffleBtn" onclick="toggleShuffle()">🔀 Shuffle</button>
+        <button class="btn btn-next" onclick="sendMsg({type:'next'})">Next ▶</button>
+      </div>
+    </div>
+
+    <!-- Volume -->
+    <div class="section">
+      <div class="section-label">🔊 Volume</div>
+      <div class="volume-row">
+        <span class="volume-icon" id="volIcon">🔊</span>
+        <div class="volume-slider-wrap">
+          <input type="range" id="volumeSlider" min="0" max="100" value="80" oninput="onVolumeChange(this.value)">
+        </div>
+        <span class="volume-pct" id="volPct">80%</span>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="section">
+      <div class="section-label">⚙️ Timing</div>
+      <div class="settings-row">
+        <div class="setting-group">
+          <label>Cycle (sec)</label>
+          <input type="number" id="cycleDuration" value="30" min="5" max="300" onchange="onSettingsChange()">
+        </div>
+        <div class="setting-group">
+          <label>Blend (sec)</label>
+          <input type="number" id="blendDuration" value="5" min="1" max="30" onchange="onSettingsChange()">
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <a href="https://tangelis.github.io/lappycap/">LappyCap</a> · Butterchurn + SomaFM → Chromecast
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ─── Data ───────────────────────────────────────────────
+    const APP_ID = '8315CD49';
+    const NAMESPACE = 'urn:x-cast:com.lappycap';
+
+    const STATIONS = [
+      { name: 'Groove Salad', genre: 'Ambient / Chill', url: 'https://ice1.somafm.com/groovesalad-128-mp3' },
+      { name: 'Groove Salad Classic', genre: 'Ambient / Downtempo', url: 'https://ice1.somafm.com/gsclassic-128-mp3' },
+      { name: 'Lush', genre: 'Electronic / Mellow', url: 'https://ice1.somafm.com/lush-128-mp3' },
+      { name: 'Deep Space One', genre: 'Deep Ambient', url: 'https://ice1.somafm.com/deepspaceone-128-mp3' },
+      { name: 'Drone Zone', genre: 'Atmospheric Ambient', url: 'https://ice1.somafm.com/dronezone-128-mp3' },
+      { name: 'Space Station Soma', genre: 'Mid-tempo / Electronic', url: 'https://ice1.somafm.com/spacestation-128-mp3' },
+      { name: 'Left Coast 70s', genre: '70s Funk / Soul', url: 'https://ice1.somafm.com/seventies-128-mp3' },
+      { name: 'Underground 80s', genre: '80s New Wave / Synth', url: 'https://ice1.somafm.com/u80s-128-mp3' },
+      { name: 'The Trip', genre: 'Progressive Electronic', url: 'https://ice1.somafm.com/thetrip-128-mp3' },
+      { name: 'Fluid', genre: 'Instrumental Hip-Hop', url: 'https://ice1.somafm.com/fluid-128-mp3' },
+      { name: 'DEF CON Radio', genre: 'Electronic / Hacker', url: 'https://ice1.somafm.com/defcon-128-mp3' },
+      { name: 'Boot Liquor', genre: 'Americana / Roots', url: 'https://ice1.somafm.com/bootliquor-128-mp3' },
+      { name: 'cliqhop idm', genre: 'IDM / Glitch', url: 'https://ice1.somafm.com/cliqhop-128-mp3' },
+      { name: 'Sonic Universe', genre: 'Jazz / Fusion', url: 'https://ice1.somafm.com/sonicuniverse-128-mp3' },
+      { name: 'Illinois Street Lounge', genre: 'Lounge / Exotica', url: 'https://ice1.somafm.com/illstreet-128-mp3' },
+      { name: 'Vaporwaves', genre: 'Vaporwave / Future Funk', url: 'https://ice1.somafm.com/vaporwaves-128-mp3' },
+    ];
+
+    const SCENES = [
+      'Sunday Morning Vibes',
+      'Deep Space Radio',
+      'Fractal Cathedral',
+      'Disco Supernova',
+      'Neon Meltdown',
+      'The Dark Forge',
+      'Psych Ward',
+      'Ocean Dreams',
+    ];
+
+    // ─── State ──────────────────────────────────────────────
+    let isConnected = false;
+    let shuffleOn = false;
+    let currentStation = STATIONS[0];
+    let currentScene = SCENES[0];
+    let keepaliveTimer = null;
+
+    // ─── DOM refs ───────────────────────────────────────────
+    const $ = (id) => document.getElementById(id);
+    const stationSelect = $('stationSelect');
+    const sceneSelect = $('sceneSelect');
+    const controlsWrap = $('controlsWrap');
+    const statusDot = $('statusDot');
+    const statusText = $('statusText');
+    const nowPlaying = $('nowPlaying');
+    const npStation = $('npStation');
+    const npScene = $('npScene');
+    const volumeSlider = $('volumeSlider');
+    const volPct = $('volPct');
+    const volIcon = $('volIcon');
+    const shuffleBtn = $('shuffleBtn');
+
+    // ─── Populate selects ───────────────────────────────────
+    STATIONS.forEach((s, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${s.name} — ${s.genre}`;
+      stationSelect.appendChild(opt);
+    });
+
+    SCENES.forEach((s, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = s;
+      sceneSelect.appendChild(opt);
+    });
+
+    // ─── Cast SDK init ──────────────────────────────────────
+    window['__onGCastApiAvailable'] = function(isAvailable) {
+      console.log('[Remote] Cast SDK available:', isAvailable);
+      if (isAvailable) initCast();
+      else {
+        statusText.textContent = 'Cast SDK not available';
+        // Show fallback button
+        $('castFallback').style.display = 'inline-block';
+        $('castLauncher').style.display = 'none';
+      }
+    };
+
+    function initCast() {
+      const ctx = cast.framework.CastContext.getInstance();
+
+      ctx.setOptions({
+        receiverApplicationId: APP_ID,
+        autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+      });
+
+      ctx.addEventListener(
+        cast.framework.CastContextEventType.CAST_STATE_CHANGED,
+        (e) => {
+          const state = e.castState;
+          console.log('[Remote] Cast state:', state);
+
+          if (state === cast.framework.CastState.NO_DEVICES_AVAILABLE) {
+            statusDot.className = 'status-dot';
+            statusText.className = 'status-text';
+            statusText.textContent = 'No Cast devices found';
+          } else if (state === cast.framework.CastState.NOT_CONNECTED) {
+            statusDot.className = 'status-dot';
+            statusText.className = 'status-text';
+            statusText.textContent = 'Ready to cast — tap the Cast icon ↗';
+          } else if (state === cast.framework.CastState.CONNECTING) {
+            statusDot.className = 'status-dot connecting';
+            statusText.className = 'status-text';
+            statusText.textContent = 'Connecting…';
+          } else if (state === cast.framework.CastState.CONNECTED) {
+            onConnected();
+          }
+        }
+      );
+
+      ctx.addEventListener(
+        cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
+        (e) => {
+          const state = e.sessionState;
+          console.log('[Remote] Session state:', state);
+
+          if (state === cast.framework.SessionState.SESSION_STARTED ||
+              state === cast.framework.SessionState.SESSION_RESUMED) {
+            onConnected();
+          } else if (state === cast.framework.SessionState.SESSION_ENDED) {
+            onDisconnected();
+          }
+        }
+      );
+    }
+
+    function onConnected() {
+      isConnected = true;
+      const ctx = cast.framework.CastContext.getInstance();
+      const session = ctx.getCurrentSession();
+      const name = session?.getCastDevice()?.friendlyName || 'Chromecast';
+
+      statusDot.className = 'status-dot connected';
+      statusText.className = 'status-text connected';
+      statusText.textContent = `Casting to: ${name}`;
+      controlsWrap.classList.remove('controls-disabled');
+
+      // Add message listener for receiver status updates
+      session.addMessageListener(NAMESPACE, (ns, msgStr) => {
+        try {
+          const msg = JSON.parse(msgStr);
+          console.log('[Remote] Receiver says:', msg);
+          handleReceiverMessage(msg);
+        } catch (e) {
+          console.log('[Remote] Receiver raw:', msgStr);
+        }
+      });
+
+      // Start keepalive
+      startKeepalive();
+
+      toast('Connected to ' + name);
+    }
+
+    function onDisconnected() {
+      isConnected = false;
+      statusDot.className = 'status-dot';
+      statusText.className = 'status-text';
+      statusText.textContent = 'Disconnected';
+      controlsWrap.classList.add('controls-disabled');
+      nowPlaying.style.display = 'none';
+      stopKeepalive();
+      toast('Disconnected');
+    }
+
+    function handleReceiverMessage(msg) {
+      // Update UI if receiver sends status back
+      if (msg.stationName) {
+        npStation.textContent = msg.stationName;
+      }
+      if (msg.sceneName) {
+        npScene.textContent = msg.sceneName;
+      }
+      if (msg.stationName || msg.sceneName) {
+        nowPlaying.style.display = 'block';
+      }
+    }
+
+    // ─── Keepalive ──────────────────────────────────────────
+    function startKeepalive() {
+      stopKeepalive();
+      keepaliveTimer = setInterval(() => {
+        sendMsg({ type: 'ping' });
+        console.log('[Remote] Keepalive ping');
+      }, 120000);
+    }
+
+    function stopKeepalive() {
+      if (keepaliveTimer) {
+        clearInterval(keepaliveTimer);
+        keepaliveTimer = null;
+      }
+    }
+
+    // ─── Actions ────────────────────────────────────────────
+    function sendMsg(msg) {
+      if (!isConnected) return;
+      try {
+        const ctx = cast.framework.CastContext.getInstance();
+        const session = ctx.getCurrentSession();
+        if (session) {
+          session.sendMessage(NAMESPACE, msg).catch(err => {
+            console.error('[Remote] Send error:', err);
+          });
+          console.log('[Remote] Sent:', msg);
+        }
+      } catch (err) {
+        console.error('[Remote] Send failed:', err);
+      }
+    }
+
+    function onStationChange() {
+      const idx = parseInt(stationSelect.value);
+      currentStation = STATIONS[idx];
+      currentScene = SCENES[parseInt(sceneSelect.value)];
+
+      const vol = parseInt(volumeSlider.value) / 100;
+
+      sendMsg({
+        type: 'load',
+        audioUrl: currentStation.url,
+        stationName: currentStation.name,
+        sceneName: currentScene,
+        volume: vol,
+      });
+
+      npStation.textContent = currentStation.name;
+      npScene.textContent = currentScene;
+      nowPlaying.style.display = 'block';
+
+      toast(`▶ ${currentStation.name}`);
+    }
+
+    function onSceneChange() {
+      const idx = parseInt(sceneSelect.value);
+      currentScene = SCENES[idx];
+      sendMsg({ type: 'scene', sceneName: currentScene });
+      npScene.textContent = currentScene;
+      nowPlaying.style.display = 'block';
+      toast(`🎨 ${currentScene}`);
+    }
+
+    function randomStation() {
+      const idx = Math.floor(Math.random() * STATIONS.length);
+      stationSelect.value = idx;
+      onStationChange();
+    }
+
+    function toggleShuffle() {
+      shuffleOn = !shuffleOn;
+      shuffleBtn.classList.toggle('active', shuffleOn);
+      sendMsg({ type: 'shuffle' });
+      toast(shuffleOn ? '🔀 Shuffle on' : '🔀 Shuffle off');
+    }
+
+    function onVolumeChange(val) {
+      const v = parseInt(val);
+      volPct.textContent = v + '%';
+      volIcon.textContent = v === 0 ? '🔇' : v < 33 ? '🔈' : v < 66 ? '🔉' : '🔊';
+      sendMsg({ type: 'settings', volume: v / 100 });
+    }
+
+    function onSettingsChange() {
+      const cycle = parseInt($('cycleDuration').value) || 30;
+      const blend = parseInt($('blendDuration').value) || 5;
+      sendMsg({ type: 'settings', cycleDuration: cycle, blendDuration: blend });
+      toast(`Cycle: ${cycle}s · Blend: ${blend}s`);
+    }
+
+    function requestCast() {
+      try {
+        cast.framework.CastContext.getInstance().requestSession();
+      } catch (e) {
+        console.error('[Remote] requestSession failed:', e);
+        toast('Cast unavailable');
+      }
+    }
+
+    // ─── Toast ──────────────────────────────────────────────
+    let toastTimer = null;
+    function toast(msg) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+    }
+  </script>
+
+  <!-- Cast SDK — must load AFTER __onGCastApiAvailable is defined -->
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+
+</body>
+</html>
