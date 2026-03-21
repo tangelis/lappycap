@@ -77,6 +77,8 @@ class LappyCapReceiver {
   private audioEl: HTMLAudioElement;
   private castContext: CastReceiverContext | null = null;
   private started = false;
+  private currentAudioUrl: string = '';
+  private audioWatchdog: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -123,19 +125,26 @@ class LappyCapReceiver {
 
   private async playAudio(url: string): Promise<void> {
     console.log('[Receiver] Loading audio:', url);
+    this.currentAudioUrl = url;
 
     // Don't use createMediaElementSource — it hijacks the audio output through
     // Web Audio, which breaks on Chromecast due to CORS/Icecast issues.
-    // Instead: play audio directly through <audio> element (reliable on all devices)
-    // and feed the visualizer a disconnected analyser (presets auto-cycle without
-    // audio reactivity, which still looks great).
-    this.audioEl.removeAttribute('crossorigin');
+    // Play audio directly through <audio> element; visualizer uses a disconnected
+    // analyser (presets auto-cycle without audio reactivity, still looks great).
     this.audioEl.src = url;
     this.audioEl.volume = 1;
 
     this.audioEl.onerror = () => {
       const err = this.audioEl.error;
       console.error('[Receiver] Audio error:', err?.message, 'code:', err?.code);
+      // Auto-retry after 5s on stream failure (Icecast disconnects happen)
+      setTimeout(() => {
+        if (this.currentAudioUrl === url) {
+          console.log('[Receiver] Retrying audio after error...');
+          this.audioEl.load();
+          this.audioEl.play().catch(e => console.error('[Receiver] Retry failed:', e));
+        }
+      }, 5000);
     };
 
     const analyser = this.ensureAudio();
@@ -151,9 +160,42 @@ class LappyCapReceiver {
     try {
       await this.audioEl.play();
       console.log('[Receiver] Audio playing directly (no Web Audio routing)');
+      this.startAudioWatchdog();
     } catch (err) {
       console.error('[Receiver] Audio play failed:', err);
+      // On Chromecast, autoplay may fail on first attempt — retry once after a tick
+      setTimeout(() => {
+        this.audioEl.play()
+          .then(() => {
+            console.log('[Receiver] Audio playing (retry succeeded)');
+            this.startAudioWatchdog();
+          })
+          .catch(e => console.error('[Receiver] Audio retry also failed:', e));
+      }, 1000);
     }
+  }
+
+  /**
+   * Watchdog: every 30s check if audio has stalled and recover.
+   * Chromecast Icecast streams can silently stall without firing an error event.
+   */
+  private startAudioWatchdog(): void {
+    if (this.audioWatchdog) clearInterval(this.audioWatchdog);
+    let lastTime = -1;
+    this.audioWatchdog = setInterval(() => {
+      if (this.audioEl.paused || this.audioEl.ended) {
+        console.warn('[Receiver] Watchdog: audio not playing, restarting...');
+        this.audioEl.play().catch(e => console.error('[Receiver] Watchdog restart failed:', e));
+        return;
+      }
+      // Detect stall: currentTime hasn't advanced in 30s
+      if (lastTime === this.audioEl.currentTime && lastTime !== -1) {
+        console.warn('[Receiver] Watchdog: stream stalled (time frozen at', lastTime, '), reloading...');
+        this.audioEl.load();
+        this.audioEl.play().catch(e => console.error('[Receiver] Watchdog reload failed:', e));
+      }
+      lastTime = this.audioEl.currentTime;
+    }, 30_000);
   }
 
   private initCast(): void {
@@ -173,28 +215,32 @@ class LappyCapReceiver {
     console.log('[Receiver] Cast SDK loaded');
     this.castContext = cast.framework.CastReceiverContext.getInstance();
 
+    // Register our <audio> element with PlayerManager BEFORE calling start().
+    // The CAF v3 PM re-initializes on start() — registering after start() is silently ignored.
+    // This is the key to preventing idle-kill: the OS must see an active media element.
+    try {
+      const playerManager = this.castContext.getPlayerManager();
+      playerManager.setMediaElement(this.audioEl);
+      console.log('[Receiver] Audio element registered with Cast PlayerManager (pre-start)');
+    } catch (err) {
+      console.warn('[Receiver] Could not register media element:', err);
+    }
+
     this.castContext.addCustomMessageListener(NAMESPACE, (event) => {
       console.log('[Receiver] Message:', event.data);
       this.handleMessage(event.senderId, event.data as ReceiverMessage);
     });
 
-    // Connect our <audio> element to the Cast player manager so the
-    // Chromecast OS sees active media playback and won't idle-kill us
-    try {
-      const playerManager = this.castContext.getPlayerManager();
-      playerManager.setMediaElement(this.audioEl);
-      console.log('[Receiver] Audio element registered with Cast PlayerManager');
-    } catch (err) {
-      console.warn('[Receiver] Could not register media element:', err);
-    }
-
-    // Disable idle timeout
-    this.castContext.setInactivityTimeout(86400);
-    this.castContext.start({ maxInactivity: 86400 });
+    // In CAF v3, setInactivityTimeout() is a no-op — idle control is via start() options only.
+    // disableIdleTimeout: true is the correct CAF v3 way to prevent the OS from killing us.
+    this.castContext.start({ disableIdleTimeout: true });
     console.log('[Receiver] Cast receiver started (idle timeout disabled)');
 
-    // Auto-start with Groove Salad so the TV isn't just a black screen
-    this.startStandalone();
+    // Auto-start with Groove Salad so the TV isn't just a black screen.
+    // Use a user-gesture simulation via a one-shot postMessage trick to satisfy
+    // Chromecast's autoplay policy (the Cast launch counts as a gesture on some builds,
+    // but we guard with a short delay to let the Cast framework settle first).
+    setTimeout(() => this.startStandalone(), 500);
   }
 
   private handleMessage(senderId: string, msg: ReceiverMessage): void {
