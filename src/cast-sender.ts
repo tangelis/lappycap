@@ -46,6 +46,7 @@ interface CastContext {
 interface CastSession {
   sendMessage(namespace: string, message: object): Promise<void>;
   getSessionId(): string;
+  getCastDevice(): { friendlyName: string };
 }
 
 export type CastMessage =
@@ -60,7 +61,7 @@ export class CastSender {
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
 
   onAvailabilityChanged?: (available: boolean) => void;
-  onSessionChanged?: (connected: boolean) => void;
+  onSessionChanged?: (connected: boolean, deviceName?: string) => void;
 
   constructor() {
     this.loadSdk();
@@ -117,7 +118,9 @@ export class CastSender {
           } else {
             this.stopKeepalive();
           }
-          this.onSessionChanged?.(this.connected);
+          // Extract device name from active session
+          const deviceName = this.connected ? this.getDeviceName() : undefined;
+          this.onSessionChanged?.(this.connected, deviceName);
         }
         console.log('[Cast] Session:', state, '| Connected:', this.connected);
       },
@@ -155,6 +158,17 @@ export class CastSender {
 
   get isAvailable(): boolean {
     return this.available;
+  }
+
+  /** Get the friendly name of the connected Cast device */
+  getDeviceName(): string | undefined {
+    try {
+      const context = cast.framework.CastContext.getInstance();
+      const session = context.getCurrentSession();
+      return session?.getCastDevice()?.friendlyName;
+    } catch {
+      return undefined;
+    }
   }
 
   private startKeepalive(): void {

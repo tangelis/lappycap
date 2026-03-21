@@ -149,6 +149,38 @@
         50% { opacity: 1; }
       }
 
+      /* Toast notification (cast status, link copied, etc.) */
+      #toast {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.7);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 12px;
+        padding: 12px 24px;
+        font-family: system-ui; font-size: 16px;
+        color: rgba(255,255,255,0.85);
+        z-index: 50;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        text-align: center;
+        white-space: nowrap;
+      }
+      #toast.visible { opacity: 1; }
+
+      /* Cast status line near cast button */
+      #cast-status {
+        font-size: 11px;
+        color: rgba(100,200,255,0.8);
+        font-family: system-ui;
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
       #loading {
         position: absolute; top: 50%; left: 50%;
         transform: translate(-50%, -50%);
@@ -214,6 +246,7 @@
     <div id="app">
       <canvas id="visualizer"></canvas>
       <div id="loading">Loading LappyCap...</div>
+      <div id="toast"></div>
       <div id="preset-name"></div>
       <div id="now-playing">
         <span class="np-indicator">▶</span>
@@ -235,6 +268,7 @@
           <button id="btn-settings" title="Settings">&#9881;</button>
           <google-cast-launcher id="cast-launcher" title="Cast to Chromecast"></google-cast-launcher>
           <button id="btn-cast" title="Cast to Chromecast" class="cast-unavailable">Cast</button>
+          <span id="cast-status"></span>
           <button id="btn-fullscreen" title="Toggle fullscreen">&#9974;</button>
         </div>
         <div id="settings-panel">

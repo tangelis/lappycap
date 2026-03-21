@@ -16,6 +16,7 @@ class LappyCap {
   private currentAudioUrl: string = '';
   private preCastVolume: number = 1;
   private isPaused = false;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -347,6 +348,17 @@ class LappyCap {
     }
   }
 
+  /** Show a centered toast message that auto-fades after `durationMs` */
+  private showToast(message: string, durationMs = 2000): void {
+    const toast = document.getElementById('toast')!;
+    toast.textContent = message;
+    toast.classList.add('visible');
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => {
+      toast.classList.remove('visible');
+    }, durationMs);
+  }
+
   /** Get the currently-selected station name (or undefined for custom URLs) */
   private getCurrentStationName(): string | undefined {
     const select = document.getElementById('radio-select') as HTMLSelectElement;
@@ -395,15 +407,21 @@ class LappyCap {
       castBtn.style.display = launcherVisible ? 'none' : '';
     };
 
-    this.castSender.onSessionChanged = (connected) => {
+    this.castSender.onSessionChanged = (connected, deviceName) => {
       castBtn.classList.toggle('active', connected);
+      const castStatus = document.getElementById('cast-status')!;
       if (connected) {
+        // Show cast status with device name
+        const name = deviceName || 'Chromecast';
+        castStatus.textContent = `📺 ${name}`;
+        this.showToast(`🎬 Casting to ${name}`, 3000);
         // Send current state to receiver
         if (this.currentAudioUrl) {
           this.castSender.send({
             type: 'load',
             audioUrl: this.currentAudioUrl,
             sceneName: this.sceneManager.getScene().name,
+            stationName: this.getCurrentStationName(),
           });
         }
         // Silence local audio — Chromecast plays its own stream
@@ -412,6 +430,8 @@ class LappyCap {
         this.preCastVolume = audioEl.volume;
         audioEl.volume = 0;
       } else {
+        castStatus.textContent = '';
+        this.showToast('📺 Cast disconnected', 2000);
         // Restore local volume
         const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
         audioEl.volume = this.preCastVolume ?? 1;
