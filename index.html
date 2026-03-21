@@ -181,6 +181,127 @@
         white-space: nowrap;
       }
 
+      /* ── Playlist Panel ── */
+      #playlist-panel {
+        display: none;
+        flex-direction: column;
+        background: rgba(10,10,15,0.88);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 12px;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        margin-bottom: 8px;
+        overflow: hidden;
+        font-family: system-ui;
+        max-width: 500px;
+      }
+      #playlist-panel.open { display: flex; }
+
+      .pl-header {
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+      .pl-header .pl-title {
+        font-size: 11px; font-weight: 600;
+        color: rgba(255,255,255,0.5);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        flex: 1;
+      }
+      .pl-header button {
+        padding: 4px 10px; font-size: 13px;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.12);
+      }
+      .pl-header button.active {
+        background: rgba(100,200,255,0.25);
+        border-color: rgba(100,200,255,0.4);
+      }
+
+      .pl-add-row {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .pl-add-row button { padding: 4px 10px; font-size: 12px; }
+      .pl-url-input {
+        display: none; align-items: center; gap: 6px; flex: 1;
+      }
+      .pl-url-input.visible { display: flex; }
+      .pl-url-input input {
+        flex: 1; font-size: 12px; padding: 4px 8px;
+        min-width: 120px;
+      }
+      .pl-url-input button { padding: 4px 8px; font-size: 12px; }
+
+      .pl-track-list {
+        max-height: 300px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.15) transparent;
+      }
+      .pl-track-list::-webkit-scrollbar { width: 5px; }
+      .pl-track-list::-webkit-scrollbar-track { background: transparent; }
+      .pl-track-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+      .pl-track {
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 14px;
+        cursor: pointer;
+        transition: background 0.15s;
+        border-left: 3px solid transparent;
+        font-size: 13px;
+        color: rgba(255,255,255,0.7);
+      }
+      .pl-track:hover { background: rgba(255,255,255,0.06); }
+      .pl-track.active {
+        border-left-color: rgba(100,200,255,0.8);
+        color: rgba(100,200,255,0.95);
+        background: rgba(100,200,255,0.06);
+      }
+      .pl-track .pl-drag { cursor: grab; color: rgba(255,255,255,0.25); font-size: 14px; user-select: none; }
+      .pl-track .pl-drag:active { cursor: grabbing; }
+      .pl-track .pl-indicator { font-size: 10px; width: 14px; text-align: center; flex-shrink: 0; }
+      .pl-track .pl-track-title {
+        flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .pl-track .pl-duration {
+        font-size: 11px; color: rgba(255,255,255,0.3);
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+      }
+      .pl-track .pl-delete {
+        opacity: 0; background: none; border: none; color: rgba(255,100,100,0.7);
+        cursor: pointer; font-size: 14px; padding: 2px 4px; flex-shrink: 0;
+        transition: opacity 0.15s;
+      }
+      .pl-track:hover .pl-delete { opacity: 1; }
+
+      .pl-empty {
+        padding: 24px 14px;
+        text-align: center;
+        color: rgba(255,255,255,0.25);
+        font-size: 13px;
+      }
+
+      .pl-footer {
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 14px;
+        border-top: 1px solid rgba(255,255,255,0.06);
+      }
+      .pl-footer button {
+        padding: 3px 8px; font-size: 11px;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+      .pl-footer .pl-spacer { flex: 1; }
+
+      /* Drag-over styling */
+      .pl-track.drag-over {
+        border-top: 2px solid rgba(100,200,255,0.6);
+      }
+
       #loading {
         position: absolute; top: 50%; left: 50%;
         transform: translate(-50%, -50%);
@@ -265,11 +386,39 @@
           </select>
           <button id="btn-shuffle-station" title="Random station">&#127922;</button>
           <button id="btn-mic" title="Use microphone">Mic</button>
+          <button id="btn-playlist" title="Playlist">📋</button>
           <button id="btn-settings" title="Settings">&#9881;</button>
           <google-cast-launcher id="cast-launcher" title="Cast to Chromecast"></google-cast-launcher>
           <button id="btn-cast" title="Cast to Chromecast" class="cast-unavailable">Cast</button>
           <span id="cast-status"></span>
           <button id="btn-fullscreen" title="Toggle fullscreen">&#9974;</button>
+        </div>
+        <div id="playlist-panel">
+          <div class="pl-header">
+            <span class="pl-title">PLAYLIST</span>
+            <button id="pl-shuffle" title="Toggle shuffle">🔀</button>
+            <button id="pl-repeat" title="Cycle repeat mode">➡️</button>
+            <button id="pl-close" title="Close playlist">✕</button>
+          </div>
+          <div class="pl-add-row">
+            <button id="pl-upload-btn">📁 Upload</button>
+            <button id="pl-url-toggle">🔗 URL</button>
+            <div class="pl-url-input" id="pl-url-row">
+              <input type="text" id="pl-url-input" placeholder="Paste audio URL..." />
+              <button id="pl-url-add">Add</button>
+            </div>
+            <input type="file" id="pl-file-input" accept="audio/*" multiple style="display:none" />
+          </div>
+          <div class="pl-track-list" id="pl-track-list">
+            <div class="pl-empty">No tracks — upload files or add URLs</div>
+          </div>
+          <div class="pl-footer">
+            <button id="pl-export">Export M3U</button>
+            <button id="pl-import-btn">Import M3U</button>
+            <input type="file" id="pl-import-input" accept=".m3u,.m3u8" style="display:none" />
+            <span class="pl-spacer"></span>
+            <button id="pl-clear">Clear All</button>
+          </div>
         </div>
         <div id="settings-panel">
           <div class="controls-row">

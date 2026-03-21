@@ -5,18 +5,24 @@ import { loadPresetsForScene } from './preset-loader';
 import { scenes } from './scenes';
 import { radioStations } from './radio-stations';
 import { CastSender } from './cast-sender';
+import { Playlist, formatDuration } from './playlist';
+import type { PlaylistTrack } from './playlist';
 
 class LappyCap {
   private audio: AudioManager;
   private visualizer: Visualizer;
   private sceneManager: SceneManager;
   private castSender: CastSender;
+  private playlist: Playlist;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private audioSourceCreated = false;
   private currentAudioUrl: string = '';
   private preCastVolume: number = 1;
   private isPaused = false;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  private playingFromPlaylist = false;
+  private dragSrcIndex: number = -1;
+  private currentTrackTitle?: string;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -26,7 +32,9 @@ class LappyCap {
     this.visualizer = new Visualizer(canvas);
     this.sceneManager = new SceneManager(scenes[0]);
     this.castSender = new CastSender();
+    this.playlist = new Playlist();
     this.setupCast();
+    this.setupPlaylist();
 
     this.init();
   }
@@ -149,6 +157,11 @@ class LappyCap {
       e.stopPropagation();
       const isOpen = settingsPanel.classList.toggle('open');
       settingsBtn.classList.toggle('active', isOpen);
+      // Mutual exclusion with playlist
+      if (isOpen) {
+        document.getElementById('playlist-panel')!.classList.remove('open');
+        document.getElementById('btn-playlist')!.classList.remove('active');
+      }
     });
 
     // Fullscreen
@@ -207,6 +220,9 @@ class LappyCap {
       const select = e.target as HTMLSelectElement;
       const url = select.value;
       if (url) {
+        // Switching to radio — deactivate playlist
+        this.playingFromPlaylist = false;
+        this.renderPlaylistTracks();
         await this.playAudioURL(url);
       }
     });
@@ -214,6 +230,8 @@ class LappyCap {
     // Shuffle station — pick a random radio station
     document.getElementById('btn-shuffle-station')!.addEventListener('click', async (e) => {
       e.stopPropagation();
+      this.playingFromPlaylist = false;
+      this.renderPlaylistTracks();
       const idx = Math.floor(Math.random() * radioStations.length);
       const station = radioStations[idx];
       (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
@@ -227,6 +245,8 @@ class LappyCap {
       const url = urlInput.value.trim();
       if (url) {
         // Clear radio selection since we're using a custom URL
+        this.playingFromPlaylist = false;
+        this.renderPlaylistTracks();
         (document.getElementById('radio-select') as HTMLSelectElement).value = '';
         await this.playAudioURL(url);
       }
@@ -281,6 +301,8 @@ class LappyCap {
           this.sceneManager.toggleShuffle();
           break;
         case 'r': {
+          this.playingFromPlaylist = false;
+          this.renderPlaylistTracks();
           const idx = Math.floor(Math.random() * radioStations.length);
           const station = radioStations[idx];
           (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
@@ -345,6 +367,10 @@ class LappyCap {
       nameEl.textContent = station.name;
       indicator.textContent = this.isPaused ? '⏸' : '▶';
       pill.classList.add('visible');
+    } else if (this.playingFromPlaylist && this.currentTrackTitle) {
+      nameEl.textContent = this.currentTrackTitle;
+      indicator.textContent = this.isPaused ? '⏸' : '▶';
+      pill.classList.add('visible');
     } else if (this.currentAudioUrl) {
       // Custom URL — show truncated URL
       nameEl.textContent = 'Custom stream';
@@ -406,9 +432,10 @@ class LappyCap {
     return station?.name;
   }
 
-  private async playAudioURL(url: string): Promise<void> {
+  private async playAudioURL(url: string, trackTitle?: string): Promise<void> {
     this.currentAudioUrl = url;
     this.isPaused = false;
+    this.currentTrackTitle = trackTitle;
     try {
       if (this.audioSourceCreated) {
         const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
@@ -426,7 +453,7 @@ class LappyCap {
           type: 'load',
           audioUrl: url,
           sceneName: this.sceneManager.getScene().name,
-          stationName: this.getCurrentStationName(),
+          stationName: trackTitle || this.getCurrentStationName(),
         });
       }
     } catch (err) {
@@ -482,6 +509,323 @@ class LappyCap {
       e.stopPropagation();
       this.castSender.requestSession();
     });
+  }
+
+  // ── Playlist integration ──
+
+  private setupPlaylist(): void {
+    const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+
+    // Load saved playlist from localStorage
+    this.playlist.loadFromStorage();
+
+    // Wire auto-advance on track end
+    audioEl.addEventListener('ended', () => {
+      if (!this.playingFromPlaylist) return;
+      const next = this.playlist.next();
+      if (next) {
+        if (this.playlist.repeat === 'one') {
+          // For repeat-one, we need to restart from the beginning
+          audioEl.currentTime = 0;
+          audioEl.play().catch(err => console.error('Repeat play failed:', err));
+          this.renderPlaylistTracks();
+        } else {
+          this.playPlaylistTrack(next);
+        }
+      } else {
+        this.playingFromPlaylist = false;
+        this.updateNowPlaying();
+        this.renderPlaylistTracks();
+      }
+    });
+
+    // Wire playlist callbacks
+    this.playlist.onTrackChange = (_track: PlaylistTrack, _index: number, _total: number) => {
+      this.renderPlaylistTracks();
+    };
+    this.playlist.onListUpdated = () => {
+      this.renderPlaylistTracks();
+    };
+    this.playlist.onPlaylistEmpty = () => {
+      this.playingFromPlaylist = false;
+      const audioEl2 = document.getElementById('audio-element') as HTMLAudioElement;
+      audioEl2.pause();
+      audioEl2.src = '';
+      this.currentAudioUrl = '';
+      this.updateNowPlaying();
+      this.renderPlaylistTracks();
+    };
+
+    // Panel toggle button
+    const plBtn = document.getElementById('btn-playlist')!;
+    const plPanel = document.getElementById('playlist-panel')!;
+    const settingsBtn = document.getElementById('btn-settings')!;
+    const settingsPanel = document.getElementById('settings-panel')!;
+
+    plBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = plPanel.classList.toggle('open');
+      plBtn.classList.toggle('active', isOpen);
+      // Mutual exclusion with settings
+      if (isOpen) {
+        settingsPanel.classList.remove('open');
+        settingsBtn.classList.remove('active');
+      }
+    });
+
+    // Close button
+    document.getElementById('pl-close')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      plPanel.classList.remove('open');
+      plBtn.classList.remove('active');
+    });
+
+    // Shuffle toggle
+    const shuffleBtn = document.getElementById('pl-shuffle')!;
+    if (this.playlist.isShuffled) shuffleBtn.classList.add('active');
+    shuffleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const on = this.playlist.toggleShuffle();
+      shuffleBtn.classList.toggle('active', on);
+      this.playlist.saveToStorage();
+    });
+
+    // Repeat cycle
+    const repeatBtn = document.getElementById('pl-repeat')!;
+    this.updateRepeatButton(repeatBtn);
+    repeatBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.playlist.cycleRepeat();
+      this.updateRepeatButton(repeatBtn);
+      this.playlist.saveToStorage();
+    });
+
+    // File upload
+    const fileInput = document.getElementById('pl-file-input') as HTMLInputElement;
+    document.getElementById('pl-upload-btn')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files) {
+        for (const f of Array.from(fileInput.files)) {
+          this.playlist.addFile(f);
+        }
+        this.renderPlaylistTracks();
+        this.playlist.saveToStorage();
+      }
+      fileInput.value = '';
+    });
+
+    // URL toggle + add
+    const urlToggle = document.getElementById('pl-url-toggle')!;
+    const urlRow = document.getElementById('pl-url-row')!;
+    const urlInput = document.getElementById('pl-url-input') as HTMLInputElement;
+    urlToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      urlRow.classList.toggle('visible');
+      if (urlRow.classList.contains('visible')) {
+        urlInput.focus();
+      }
+    });
+
+    document.getElementById('pl-url-add')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = urlInput.value.trim();
+      if (url) {
+        this.playlist.addUrl(url);
+        urlInput.value = '';
+        this.renderPlaylistTracks();
+        this.playlist.saveToStorage();
+      }
+    });
+
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.stopPropagation();
+        const url = urlInput.value.trim();
+        if (url) {
+          this.playlist.addUrl(url);
+          urlInput.value = '';
+          this.renderPlaylistTracks();
+          this.playlist.saveToStorage();
+        }
+      }
+    });
+
+    // M3U export
+    document.getElementById('pl-export')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m3u = this.playlist.exportM3U();
+      const blob = new Blob([m3u], { type: 'audio/x-mpegurl' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'lappycap-playlist.m3u';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // M3U import
+    const importInput = document.getElementById('pl-import-input') as HTMLInputElement;
+    document.getElementById('pl-import-btn')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      importInput.click();
+    });
+    importInput.addEventListener('change', () => {
+      const file = importInput.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const text = reader.result as string;
+          this.playlist.importM3U(text);
+          this.renderPlaylistTracks();
+          this.playlist.saveToStorage();
+        };
+        reader.readAsText(file);
+      }
+      importInput.value = '';
+    });
+
+    // Clear all
+    document.getElementById('pl-clear')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.playlist.clear();
+      this.renderPlaylistTracks();
+      this.playlist.saveToStorage();
+    });
+
+    // Render initial track list
+    this.renderPlaylistTracks();
+  }
+
+  private updateRepeatButton(btn: HTMLElement): void {
+    const mode = this.playlist.repeat;
+    const labels: Record<string, string> = { none: '➡️', one: '🔂', all: '🔁' };
+    const titles: Record<string, string> = { none: 'Repeat: Off', one: 'Repeat: One', all: 'Repeat: All' };
+    btn.textContent = labels[mode];
+    btn.title = titles[mode];
+    btn.classList.toggle('active', mode !== 'none');
+  }
+
+  private renderPlaylistTracks(): void {
+    const container = document.getElementById('pl-track-list')!;
+    const tracks = this.playlist.getTracks();
+    const currentPos = this.playlist.currentPosition;
+
+    if (tracks.length === 0) {
+      container.innerHTML = '<div class="pl-empty">No tracks — upload files or add URLs</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    tracks.forEach((track, idx) => {
+      const el = document.createElement('div');
+      el.className = 'pl-track';
+      if (idx === currentPos && this.playingFromPlaylist) {
+        el.classList.add('active');
+      }
+      el.dataset.index = String(idx);
+      el.draggable = true;
+
+      const drag = document.createElement('span');
+      drag.className = 'pl-drag';
+      drag.textContent = '⠿';
+
+      const indicator = document.createElement('span');
+      indicator.className = 'pl-indicator';
+      indicator.textContent = (idx === currentPos && this.playingFromPlaylist) ? '▶' : '○';
+
+      const title = document.createElement('span');
+      title.className = 'pl-track-title';
+      title.textContent = track.title;
+      title.title = track.title;
+
+      const duration = document.createElement('span');
+      duration.className = 'pl-duration';
+      duration.textContent = track.duration ? formatDuration(track.duration) : '';
+
+      const del = document.createElement('button');
+      del.className = 'pl-delete';
+      del.textContent = '✕';
+      del.title = 'Remove track';
+
+      el.appendChild(drag);
+      el.appendChild(indicator);
+      el.appendChild(title);
+      el.appendChild(duration);
+      el.appendChild(del);
+
+      // Click to play
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if ((e.target as HTMLElement).classList.contains('pl-delete')) return;
+        if ((e.target as HTMLElement).classList.contains('pl-drag')) return;
+        const t = this.playlist.jumpTo(idx);
+        if (t) {
+          this.playPlaylistTrack(t);
+        }
+      });
+
+      // Delete
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wasPlaying = idx === currentPos && this.playingFromPlaylist;
+        this.playlist.removeTrack(track.id);
+        if (wasPlaying && this.playlist.length > 0) {
+          const cur = this.playlist.getCurrentTrack();
+          if (cur) this.playPlaylistTrack(cur);
+        }
+        this.renderPlaylistTracks();
+        this.playlist.saveToStorage();
+      });
+
+      // Drag events
+      el.addEventListener('dragstart', (e) => {
+        this.dragSrcIndex = idx;
+        el.style.opacity = '0.4';
+        e.dataTransfer!.effectAllowed = 'move';
+      });
+      el.addEventListener('dragend', () => {
+        el.style.opacity = '1';
+        this.dragSrcIndex = -1;
+        // Remove all drag-over classes
+        container.querySelectorAll('.drag-over').forEach(el2 => el2.classList.remove('drag-over'));
+      });
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer!.dropEffect = 'move';
+        el.classList.add('drag-over');
+      });
+      el.addEventListener('dragleave', () => {
+        el.classList.remove('drag-over');
+      });
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        const toIdx = parseInt(el.dataset.index!);
+        if (this.dragSrcIndex >= 0 && this.dragSrcIndex !== toIdx) {
+          this.playlist.moveTrack(this.dragSrcIndex, toIdx);
+          this.renderPlaylistTracks();
+          this.playlist.saveToStorage();
+        }
+      });
+
+      container.appendChild(el);
+    });
+  }
+
+  private playPlaylistTrack(track: PlaylistTrack): void {
+    this.playingFromPlaylist = true;
+    // Clear radio station selection
+    (document.getElementById('radio-select') as HTMLSelectElement).value = '';
+    // Stop mic if active
+    if (this.audio.isMicActive) {
+      this.audio.stopMic();
+      document.getElementById('btn-mic')!.classList.remove('active');
+    }
+    // Play the track
+    this.playAudioURL(track.url, track.title);
+    this.renderPlaylistTracks();
   }
 
   private populateRadioSelector(): void {
