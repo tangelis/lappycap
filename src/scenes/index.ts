@@ -5,6 +5,8 @@ import { fractalCathedral } from './fractal-cathedral';
 import { discoSupernova } from './disco-supernova';
 import { neonMeltdown } from './neon-meltdown';
 import { theDarkForge } from './the-dark-forge';
+import { psychWard } from './psych-ward';
+import { oceanDreams } from './ocean-dreams';
 
 export const scenes: Scene[] = [
   sundayMorningVibes,
@@ -13,6 +15,8 @@ export const scenes: Scene[] = [
   discoSupernova,
   neonMeltdown,
   theDarkForge,
+  psychWard,
+  oceanDreams,
 ];
 
 export function getScene(name: string): Scene | undefined {
