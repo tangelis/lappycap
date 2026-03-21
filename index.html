@@ -115,6 +115,40 @@
         50% { color: rgba(180,220,255,0.8); }
       }
 
+      /* Now Playing pill */
+      #now-playing {
+        position: absolute; top: 16px; right: 20px;
+        display: flex; align-items: center; gap: 8px;
+        background: rgba(0,0,0,0.55);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 20px;
+        padding: 6px 14px 6px 10px;
+        font-family: system-ui; font-size: 13px;
+        color: rgba(255,255,255,0.75);
+        z-index: 10;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.6s ease;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+      #now-playing.visible { opacity: 1; }
+      #now-playing .np-indicator {
+        color: rgba(100,200,255,0.9);
+        font-size: 11px;
+        animation: np-pulse 1.8s ease-in-out infinite;
+      }
+      #now-playing .np-station {
+        white-space: nowrap;
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      @keyframes np-pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+
       #loading {
         position: absolute; top: 50%; left: 50%;
         transform: translate(-50%, -50%);
@@ -181,6 +215,10 @@
       <canvas id="visualizer"></canvas>
       <div id="loading">Loading LappyCap...</div>
       <div id="preset-name"></div>
+      <div id="now-playing">
+        <span class="np-indicator">▶</span>
+        <span class="np-station" id="np-station-name"></span>
+      </div>
       <div id="controls">
         <div class="controls-row">
           <button id="btn-prev" title="Previous preset">&#9664;</button>

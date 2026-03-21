@@ -49,7 +49,7 @@ interface CastSession {
 }
 
 export type CastMessage =
-  | { type: 'load'; audioUrl: string; sceneName?: string; volume?: number }
+  | { type: 'load'; audioUrl: string; sceneName?: string; stationName?: string; volume?: number }
   | { type: 'scene'; sceneName: string }
   | { type: 'next' | 'prev' | 'shuffle' }
   | { type: 'settings'; cycleDuration?: number; blendDuration?: number; volume?: number };

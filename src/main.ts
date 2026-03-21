@@ -15,6 +15,7 @@ class LappyCap {
   private audioSourceCreated = false;
   private currentAudioUrl: string = '';
   private preCastVolume: number = 1;
+  private isPaused = false;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -323,8 +324,39 @@ class LappyCap {
     }
   }
 
+  /** Update the "Now Playing" pill in the top-right corner */
+  private updateNowPlaying(): void {
+    const pill = document.getElementById('now-playing')!;
+    const nameEl = document.getElementById('np-station-name')!;
+    const indicator = pill.querySelector('.np-indicator') as HTMLElement;
+    const select = document.getElementById('radio-select') as HTMLSelectElement;
+
+    // Find the station name from the currently selected option
+    const station = radioStations.find(s => s.url === select.value);
+    if (station) {
+      nameEl.textContent = station.name;
+      indicator.textContent = this.isPaused ? '⏸' : '▶';
+      pill.classList.add('visible');
+    } else if (this.currentAudioUrl) {
+      // Custom URL — show truncated URL
+      nameEl.textContent = 'Custom stream';
+      indicator.textContent = this.isPaused ? '⏸' : '▶';
+      pill.classList.add('visible');
+    } else {
+      pill.classList.remove('visible');
+    }
+  }
+
+  /** Get the currently-selected station name (or undefined for custom URLs) */
+  private getCurrentStationName(): string | undefined {
+    const select = document.getElementById('radio-select') as HTMLSelectElement;
+    const station = radioStations.find(s => s.url === select.value);
+    return station?.name;
+  }
+
   private async playAudioURL(url: string): Promise<void> {
     this.currentAudioUrl = url;
+    this.isPaused = false;
     try {
       if (this.audioSourceCreated) {
         const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
@@ -334,12 +366,15 @@ class LappyCap {
         await this.audio.loadURL(url);
         this.audioSourceCreated = true;
       }
+      // Update now-playing display
+      this.updateNowPlaying();
       // Forward to Chromecast if connected
       if (this.castSender.isConnected) {
         this.castSender.send({
           type: 'load',
           audioUrl: url,
           sceneName: this.sceneManager.getScene().name,
+          stationName: this.getCurrentStationName(),
         });
       }
     } catch (err) {
