@@ -20,6 +20,14 @@ declare const cast: {
       getInstance(): CastReceiverContext;
     };
     PlayerManager: new () => PlayerManager;
+    system: {
+      EventType: {
+        SENDER_DISCONNECTED: string;
+        SENDER_CONNECTED: string;
+        READY: string;
+        ERROR: string;
+      };
+    };
   };
 };
 
@@ -28,10 +36,11 @@ interface PlayerManager {
 }
 
 interface CastReceiverContext {
-  start(options?: { disableIdleTimeout?: boolean; maxInactivity?: number; playbackConfig?: any }): void;
+  start(options?: { disableIdleTimeout?: boolean; maxInactivity?: number; playbackConfig?: unknown }): void;
   stop(): void;
   setInactivityTimeout(seconds: number): void;
   getPlayerManager(): PlayerManager;
+  addEventListener(type: string, handler: (event: unknown) => void): void;
   addCustomMessageListener(namespace: string, handler: (event: CustomMessageEvent) => void): void;
   sendCustomMessage(namespace: string, senderId: string | undefined, message: unknown): void;
 }
@@ -215,9 +224,10 @@ class LappyCapReceiver {
     console.log('[Receiver] Cast SDK loaded');
     this.castContext = cast.framework.CastReceiverContext.getInstance();
 
-    // Register our <audio> element with PlayerManager BEFORE calling start().
-    // The CAF v3 PM re-initializes on start() — registering after start() is silently ignored.
-    // This is the key to preventing idle-kill: the OS must see an active media element.
+    // IMPORTANT: The <audio> element has class="castMediaElement" in the HTML.
+    // This is the preferred CAF v3 way to designate the media element — the SDK
+    // picks it up automatically at start() time without needing setMediaElement().
+    // setMediaElement() is kept as a belt-and-suspenders fallback only.
     try {
       const playerManager = this.castContext.getPlayerManager();
       playerManager.setMediaElement(this.audioEl);
@@ -231,15 +241,28 @@ class LappyCapReceiver {
       this.handleMessage(event.senderId, event.data as ReceiverMessage);
     });
 
-    // In CAF v3, setInactivityTimeout() is a no-op — idle control is via start() options only.
-    // disableIdleTimeout: true is the correct CAF v3 way to prevent the OS from killing us.
-    this.castContext.start({ disableIdleTimeout: true });
-    console.log('[Receiver] Cast receiver started (idle timeout disabled)');
+    // Listen for SENDER_DISCONNECTED — if all senders disconnect while we're a
+    // non-media app (visualizer), CAF will shut us down unless we have disableIdleTimeout.
+    this.castContext.addEventListener(
+      cast.framework.system.EventType.SENDER_DISCONNECTED,
+      () => {
+        console.log('[Receiver] Sender disconnected — continuing playback (disableIdleTimeout is on)');
+        // Keep visualizer alive. The OS won't kill us because disableIdleTimeout is set.
+      }
+    );
+
+    // disableIdleTimeout: true — prevents receiver from being closed when idle
+    // after active playback stops. Required for non-media apps like a visualizer.
+    // maxInactivity: controls sender heartbeat timeout (not the idle kill timeout).
+    // Setting it high prevents the SDK from disconnecting a sender that went quiet.
+    this.castContext.start({
+      disableIdleTimeout: true,
+      maxInactivity: 3600, // 1 hour — don't disconnect senders that go quiet
+    });
+    console.log('[Receiver] Cast receiver started (idle timeout disabled, maxInactivity=3600)');
 
     // Auto-start with Groove Salad so the TV isn't just a black screen.
-    // Use a user-gesture simulation via a one-shot postMessage trick to satisfy
-    // Chromecast's autoplay policy (the Cast launch counts as a gesture on some builds,
-    // but we guard with a short delay to let the Cast framework settle first).
+    // Short delay lets the Cast framework fully settle before we touch the audio element.
     setTimeout(() => this.startStandalone(), 500);
   }
 

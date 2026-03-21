@@ -287,6 +287,13 @@ class LappyCap {
           this.playAudioURL(station.url);
           break;
         }
+        case ' ':
+          e.preventDefault();
+          this.togglePause();
+          break;
+        case 'c':
+          this.copyShareLink();
+          break;
         case 'Escape':
           this.hideHelp();
           this.showControls();
@@ -346,6 +353,39 @@ class LappyCap {
     } else {
       pill.classList.remove('visible');
     }
+  }
+
+  /** Toggle audio pause/resume and show indicator */
+  private togglePause(): void {
+    const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+    if (audioEl.paused) {
+      audioEl.play().catch(err => console.error('Resume failed:', err));
+      this.isPaused = false;
+      this.showToast('▶', 1500);
+    } else {
+      audioEl.pause();
+      this.isPaused = true;
+      this.showToast('⏸', 1500);
+    }
+    this.updateNowPlaying();
+  }
+
+  /** Copy a shareable URL with current scene + station to clipboard */
+  private copyShareLink(): void {
+    const url = new URL(window.location.href);
+    // Clear existing params and set current state
+    url.search = '';
+    url.searchParams.set('scene', this.sceneManager.getScene().name);
+    const station = radioStations.find(s => s.url === this.currentAudioUrl);
+    if (station) {
+      url.searchParams.set('station', station.name);
+    }
+    navigator.clipboard.writeText(url.toString()).then(() => {
+      this.showToast('🔗 Link copied!', 2000);
+    }).catch(() => {
+      // Fallback: still show the URL
+      this.showToast('🔗 ' + url.toString(), 3000);
+    });
   }
 
   /** Show a centered toast message that auto-fades after `durationMs` */
