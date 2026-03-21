@@ -26,6 +26,11 @@ export class Visualizer {
   private running: boolean = false;
   private targetFps: number = isMobile ? 30 : 60;
   private lastRenderTime: number = 0;
+  private analyserRef: AnalyserNode | null = null;
+  private contextLost: boolean = false;
+  private hidden: boolean = false;
+  private renderErrorCount: number = 0;
+  private static readonly MAX_RENDER_ERRORS = 50;
 
   onPresetChange?: (name: string) => void;
 
@@ -34,9 +39,24 @@ export class Visualizer {
   }
 
   init(analyser: AnalyserNode): void {
-    this.resize();
+    // Store analyser for WebGL context recovery
+    this.analyserRef = analyser;
 
-    // Mobile: reduce mesh density and cap DPR to keep GPU happy
+    this.resize();
+    this.createRenderer(analyser);
+
+    window.addEventListener('resize', this.handleResize);
+
+    // ── WebGL context loss/restore handlers ──
+    this.canvas.addEventListener('webglcontextlost', this.handleContextLost);
+    this.canvas.addEventListener('webglcontextrestored', this.handleContextRestored);
+
+    // ── Page Visibility API — pause when hidden, resume when visible ──
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  /** Create (or recreate) the butterchurn renderer */
+  private createRenderer(analyser: AnalyserNode): void {
     const mesh = isMobile
       ? { meshWidth: 24, meshHeight: 18 }
       : { meshWidth: 48, meshHeight: 36 };
@@ -60,9 +80,8 @@ export class Visualizer {
     }
 
     this.renderer!.connectAudio(analyser);
+    this.renderErrorCount = 0;
     console.log('[LappyCap] Visualizer initialized and audio connected');
-
-    window.addEventListener('resize', this.handleResize);
   }
 
   /** Cap DPR on mobile to avoid rendering millions of unnecessary pixels */
@@ -74,6 +93,68 @@ export class Visualizer {
   private handleResize = (): void => {
     this.resize();
   };
+
+  // ── WebGL context loss recovery ──
+
+  private handleContextLost = (e: Event): void => {
+    e.preventDefault(); // Signal browser we intend to restore
+    this.contextLost = true;
+    console.warn('[LappyCap] WebGL context lost — pausing render loop');
+    this.pauseLoop();
+  };
+
+  private handleContextRestored = (): void => {
+    console.log('[LappyCap] WebGL context restored — reinitializing renderer');
+    this.contextLost = false;
+
+    if (this.analyserRef) {
+      try {
+        this.resize();
+        this.createRenderer(this.analyserRef);
+        // Restart the loop if we were running before the loss
+        if (this.running) {
+          this.resumeLoop();
+        }
+      } catch (err) {
+        console.error('[LappyCap] Failed to reinitialize after context restore:', err);
+      }
+    }
+  };
+
+  // ── Page Visibility API ──
+
+  private handleVisibilityChange = (): void => {
+    if (document.hidden) {
+      this.hidden = true;
+      console.log('[LappyCap] Tab hidden — pausing render loop');
+      this.pauseLoop();
+    } else {
+      this.hidden = false;
+      console.log('[LappyCap] Tab visible — resuming render loop');
+      // Don't resume if WebGL context is still lost
+      if (!this.contextLost && this.running) {
+        this.resumeLoop();
+      }
+    }
+  };
+
+  // ── Loop pause/resume helpers ──
+
+  /** Cancel the current rAF without clearing the `running` flag */
+  private pauseLoop(): void {
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = 0;
+    }
+  }
+
+  /** Re-enter the rAF loop, resetting the frame timestamp to avoid delta spikes */
+  private resumeLoop(): void {
+    this.lastRenderTime = 0; // reset so first frame doesn't skip
+    if (!this.animFrameId) {
+      this.animFrameId = requestAnimationFrame(this.render);
+    }
+  }
 
   resize(): void {
     const dpr = this.getPixelRatio();
@@ -99,10 +180,7 @@ export class Visualizer {
 
   stop(): void {
     this.running = false;
-    if (this.animFrameId) {
-      cancelAnimationFrame(this.animFrameId);
-      this.animFrameId = 0;
-    }
+    this.pauseLoop();
   }
 
   /** Set target FPS (lower = slower visuals). Range: 10-60 */
@@ -111,18 +189,41 @@ export class Visualizer {
   }
 
   private render = (now: number = 0): void => {
-    if (!this.running || !this.renderer) return;
+    if (!this.running || !this.renderer || this.contextLost || this.hidden) return;
+
+    // Always schedule the next frame FIRST so errors can't kill the loop
     this.animFrameId = requestAnimationFrame(this.render);
 
     const interval = 1000 / this.targetFps;
     if (now - this.lastRenderTime < interval) return;
     this.lastRenderTime = now;
 
-    this.renderer.render();
+    try {
+      this.renderer.render();
+      // Reset error count on successful render
+      if (this.renderErrorCount > 0) this.renderErrorCount = 0;
+    } catch (err) {
+      this.renderErrorCount++;
+      if (this.renderErrorCount <= 5) {
+        console.error(`[LappyCap] Render error (${this.renderErrorCount}):`, err);
+      } else if (this.renderErrorCount === 6) {
+        console.error('[LappyCap] Suppressing further render errors (too many consecutive failures)');
+      }
+      // If we hit MAX_RENDER_ERRORS consecutive failures, stop to avoid burning CPU
+      if (this.renderErrorCount >= Visualizer.MAX_RENDER_ERRORS) {
+        console.error('[LappyCap] Too many consecutive render errors — stopping loop');
+        this.running = false;
+        this.pauseLoop();
+      }
+      // Otherwise the next frame is already scheduled — loop continues
+    }
   };
 
   destroy(): void {
     this.stop();
     window.removeEventListener('resize', this.handleResize);
+    this.canvas.removeEventListener('webglcontextlost', this.handleContextLost);
+    this.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   }
 }
