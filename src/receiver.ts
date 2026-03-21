@@ -55,6 +55,7 @@ interface LoadMessage {
   type: 'load';
   audioUrl: string;
   sceneName?: string;
+  stationName?: string;
   volume?: number;
 }
 

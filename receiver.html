@@ -21,6 +21,22 @@
         font-family: system-ui; pointer-events: none;
         transition: opacity 2s ease;
       }
+      #station-name {
+        position: absolute; bottom: 40px; left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255,255,255,0.8);
+        font-size: 20px;
+        font-family: system-ui;
+        font-weight: 300;
+        letter-spacing: 1px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+        text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+        white-space: nowrap;
+      }
+      #station-name.fade-in { opacity: 1; transition: opacity 0.5s ease; }
+      #station-name.fade-out { opacity: 0; transition: opacity 1.5s ease; }
     </style>
   </head>
   <body>
