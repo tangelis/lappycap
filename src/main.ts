@@ -141,6 +141,13 @@ class LappyCap {
       this.sceneManager.next();
     });
 
+    // Pause / Resume button
+    const pauseBtn = document.getElementById('btn-pause')!;
+    pauseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.togglePause();
+    });
+
     // Shuffle toggle
     const shuffleBtn = document.getElementById('btn-shuffle')!;
     shuffleBtn.classList.add('active');
@@ -384,14 +391,21 @@ class LappyCap {
   /** Toggle audio pause/resume and show indicator */
   private togglePause(): void {
     const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+    const pauseBtn = document.getElementById('btn-pause')!;
     if (audioEl.paused) {
       audioEl.play().catch(err => console.error('Resume failed:', err));
       this.isPaused = false;
+      pauseBtn.innerHTML = '&#9646;&#9646;';
+      pauseBtn.classList.remove('active');
       this.showToast('▶', 1500);
+      if (this.castSender.isConnected) this.castSender.send({ type: 'resume' });
     } else {
       audioEl.pause();
       this.isPaused = true;
+      pauseBtn.innerHTML = '&#9654;';
+      pauseBtn.classList.add('active');
       this.showToast('⏸', 1500);
+      if (this.castSender.isConnected) this.castSender.send({ type: 'pause' });
     }
     this.updateNowPlaying();
   }

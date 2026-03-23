@@ -447,6 +447,14 @@
       </div>
     </div>
 
+    <!-- Playback -->
+    <div class="section">
+      <div class="section-label">⏯️ Playback</div>
+      <button class="btn btn-full" id="pauseBtn" onclick="togglePauseRemote()" style="font-size:20px; min-height:56px;">
+        ⏸ Pause
+      </button>
+    </div>
+
     <!-- Preset controls -->
     <div class="section">
       <div class="section-label">🎛️ Presets</div>
@@ -532,6 +540,7 @@
     // ─── State ──────────────────────────────────────────────
     let isConnected = false;
     let shuffleOn = false;
+    let isPaused = false;
     let currentStation = STATIONS[0];
     let currentScene = SCENES[0];
     let keepaliveTimer = null;
@@ -730,6 +739,7 @@
       npScene.textContent = currentScene;
       nowPlaying.style.display = 'block';
 
+      resetPauseState();
       toast(`▶ ${currentStation.name}`);
     }
 
@@ -753,6 +763,33 @@
       shuffleBtn.classList.toggle('active', shuffleOn);
       sendMsg({ type: 'shuffle' });
       toast(shuffleOn ? '🔀 Shuffle on' : '🔀 Shuffle off');
+    }
+
+    function togglePauseRemote() {
+      const btn = $('pauseBtn');
+      if (isPaused) {
+        isPaused = false;
+        sendMsg({ type: 'resume' });
+        btn.innerHTML = '⏸ Pause';
+        btn.classList.remove('btn-accent');
+        toast('▶ Resumed');
+      } else {
+        isPaused = true;
+        sendMsg({ type: 'pause' });
+        btn.innerHTML = '▶ Resume';
+        btn.classList.add('btn-accent');
+        toast('⏸ Paused');
+      }
+    }
+
+    // Reset pause state when a new station is loaded
+    function resetPauseState() {
+      isPaused = false;
+      const btn = $('pauseBtn');
+      if (btn) {
+        btn.innerHTML = '⏸ Pause';
+        btn.classList.remove('btn-accent');
+      }
     }
 
     function onVolumeChange(val) {

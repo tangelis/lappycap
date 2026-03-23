@@ -65,7 +65,7 @@ interface SceneMessage {
 }
 
 interface ControlMessage {
-  type: 'next' | 'prev' | 'shuffle';
+  type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume';
 }
 
 interface SettingsMessage {
@@ -90,6 +90,7 @@ class LappyCapReceiver {
   private currentAudioUrl: string = '';
   private audioWatchdog: ReturnType<typeof setInterval> | null = null;
   private stationNameTimer: ReturnType<typeof setTimeout> | null = null;
+  private intentionallyPaused = false;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -194,6 +195,9 @@ class LappyCapReceiver {
     if (this.audioWatchdog) clearInterval(this.audioWatchdog);
     let lastTime = -1;
     this.audioWatchdog = setInterval(() => {
+      // Don't fight an intentional pause
+      if (this.intentionallyPaused) return;
+
       if (this.audioEl.paused || this.audioEl.ended) {
         console.warn('[Receiver] Watchdog: audio not playing, restarting...');
         this.audioEl.play().catch(e => console.error('[Receiver] Watchdog restart failed:', e));
@@ -271,6 +275,7 @@ class LappyCapReceiver {
   private handleMessage(senderId: string, msg: ReceiverMessage): void {
     switch (msg.type) {
       case 'load': {
+        this.intentionallyPaused = false; // new load always resumes
         if (msg.sceneName) {
           const scene = scenes.find(s => s.name === msg.sceneName);
           if (scene) this.initScene(scene);
@@ -301,6 +306,16 @@ class LappyCapReceiver {
         }
         break;
       }
+      case 'pause':
+        this.intentionallyPaused = true;
+        this.audioEl.pause();
+        console.log('[Receiver] Paused by sender');
+        break;
+      case 'resume':
+        this.intentionallyPaused = false;
+        this.audioEl.play().catch(e => console.error('[Receiver] Resume failed:', e));
+        console.log('[Receiver] Resumed by sender');
+        break;
       case 'next':
         this.sceneManager.next();
         break;
