@@ -397,23 +397,9 @@ class LappyCapReceiver {
     });
     console.log('[Receiver] Cast receiver started (idle timeout disabled, maxInactivity=3600)');
 
-    // Start visuals immediately. Give the sender 3 seconds to send a 'load'
-    // message with the current audio URL. If nothing arrives, fall back to
-    // Groove Salad so the TV isn't silent.
-    const analyser = this.ensureAudio();
-    if (!this.started) {
-      this.visualizer.init(analyser);
-      this.visualizer.start();
-      this.sceneManager.start();
-      this.started = true;
-    }
-
-    setTimeout(() => {
-      if (!this.currentAudioUrl) {
-        console.log('[Receiver] No audio from sender after 3s, falling back to Groove Salad');
-        this.startStandalone();
-      }
-    }, 3000);
+    // Auto-start with Groove Salad immediately. When the sender's 'load'
+    // message arrives (usually within 1-2s), it overrides with the current audio.
+    this.startStandalone();
   }
 
   private handleMessage(senderId: string, msg: ReceiverMessage): void {
