@@ -259,6 +259,12 @@ class LappyCap {
       }
     });
 
+    // Cast debug overlay toggle
+    document.getElementById('btn-debug-cast')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.castSender.send({ type: 'debug' } as any);
+    });
+
     // Mic input (toggle)
     const micBtn = document.getElementById('btn-mic')!;
     micBtn.addEventListener('click', async (e) => {

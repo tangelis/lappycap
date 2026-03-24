@@ -67,7 +67,7 @@ interface SceneMessage {
 }
 
 interface ControlMessage {
-  type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume';
+  type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume' | 'debug';
 }
 
 interface SettingsMessage {
@@ -97,6 +97,8 @@ class LappyCapReceiver {
   private intentionallyPaused = false;
   private wakeLock: WakeLockSentinel | null = null;
   private wakeLockRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private debugMode = false;
+  private debugTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -455,12 +457,59 @@ class LappyCapReceiver {
       case 'shuffle':
         this.sceneManager.toggleShuffle();
         break;
+      case 'debug':
+        this.toggleDebug();
+        break;
       case 'settings':
         if (msg.cycleDuration !== undefined) this.sceneManager.setCycleDuration(msg.cycleDuration);
         if (msg.blendDuration !== undefined) this.sceneManager.setBlendDuration(msg.blendDuration);
         if (msg.volume !== undefined) this.audioEl.volume = Math.max(0, Math.min(1, msg.volume));
         break;
     }
+  }
+
+  private toggleDebug(): void {
+    this.debugMode = !this.debugMode;
+    const overlay = document.getElementById('debug-overlay')!;
+    overlay.classList.toggle('visible', this.debugMode);
+
+    if (this.debugMode) {
+
+
+      this.debugTimer = setInterval(() => this.updateDebug(), 500);
+    } else {
+      if (this.debugTimer) clearInterval(this.debugTimer);
+      this.debugTimer = null;
+    }
+  }
+
+  private updateDebug(): void {
+    const overlay = document.getElementById('debug-overlay')!;
+    // Analyser data
+    let audioLevel = 0;
+    let peak = 0;
+    let hasData = false;
+    if (this.analyser) {
+      const data = new Uint8Array(this.analyser.frequencyBinCount);
+      this.analyser.getByteFrequencyData(data);
+      const sum = data.reduce((a, b) => a + b, 0);
+      audioLevel = Math.round(sum / data.length);
+      peak = Math.max(...data);
+      hasData = sum > 0;
+    }
+
+    const lines = [
+      `Web Audio: ${this.webAudioConnected ? 'YES' : 'NO'}`,
+      `Analyser data: ${hasData ? 'YES' : 'NO (zeroed)'}`,
+      `Audio level: ${audioLevel} / peak: ${peak}`,
+      `Audio src: ${this.audioEl.paused ? 'PAUSED' : 'PLAYING'}`,
+      `CORS: ${this.audioEl.crossOrigin || 'none'}`,
+      `URL: ${this.currentAudioUrl.split('/').pop()?.slice(0, 30) || 'none'}`,
+      `UA: ${navigator.userAgent.includes('CrKey') ? 'Chromecast' : 'Browser'}`,
+      `Canvas: ${document.querySelector('canvas')?.width}x${document.querySelector('canvas')?.height}`,
+    ];
+
+    overlay.innerHTML = lines.join('<br>');
   }
 
   /** Briefly display station name on screen: fade in 0.5s, hold 3s, fade out 1.5s */

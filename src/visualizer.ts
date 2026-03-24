@@ -18,13 +18,14 @@ interface ButterchurnRenderer {
 }
 
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isCastDevice = /CrKey/i.test(navigator.userAgent);
 
 export class Visualizer {
   private renderer: ButterchurnRenderer | null = null;
   private canvas: HTMLCanvasElement;
   private animFrameId: number = 0;
   private running: boolean = false;
-  private targetFps: number = isMobile ? 30 : 60;
+  private targetFps: number = (isMobile || isCastDevice) ? 30 : 60;
   private lastRenderTime: number = 0;
   private analyserRef: AnalyserNode | null = null;
   private contextLost: boolean = false;
@@ -57,7 +58,7 @@ export class Visualizer {
 
   /** Create (or recreate) the butterchurn renderer */
   private createRenderer(analyser: AnalyserNode): void {
-    const mesh = isMobile
+    const mesh = (isMobile || isCastDevice)
       ? { meshWidth: 24, meshHeight: 18 }
       : { meshWidth: 48, meshHeight: 36 };
 
@@ -87,7 +88,7 @@ export class Visualizer {
   /** Cap DPR on mobile to avoid rendering millions of unnecessary pixels */
   private getPixelRatio(): number {
     const dpr = window.devicePixelRatio || 1;
-    return isMobile ? Math.min(dpr, 1.5) : dpr;
+    return (isMobile || isCastDevice) ? Math.min(dpr, 1) : dpr;
   }
 
   private handleResize = (): void => {
