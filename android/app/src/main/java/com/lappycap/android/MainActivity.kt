@@ -71,6 +71,7 @@ fun LappyCapApp(sender: LappyCapSender) {
     var volume by remember { mutableFloatStateOf(0.8f) }
     var cycleDuration by remember { mutableIntStateOf(30) }
     var blendDuration by remember { mutableIntStateOf(8) }
+    var isPaused by remember { mutableStateOf(false) }
 
     // Debounce handler for settings
     val handler = remember { Handler(Looper.getMainLooper()) }
@@ -148,6 +149,7 @@ fun LappyCapApp(sender: LappyCapSender) {
                     enabled = isConnected,
                     onStationSelected = { station ->
                         selectedStation = station
+                        isPaused = false
                         sender.sendLoad(
                             audioUrl = station.url,
                             stationName = station.name,
@@ -169,6 +171,21 @@ fun LappyCapApp(sender: LappyCapSender) {
                     onSceneSelected = { scene ->
                         selectedScene = scene
                         sender.sendScene(scene.name)
+                    }
+                )
+            }
+
+            // Playback
+            item {
+                SectionLabel("⏯️ PLAYBACK")
+            }
+            item {
+                PauseButton(
+                    isPaused = isPaused,
+                    enabled = isConnected,
+                    onToggle = {
+                        isPaused = !isPaused
+                        if (isPaused) sender.sendPause() else sender.sendResume()
                     }
                 )
             }
@@ -378,6 +395,37 @@ fun ScenePicker(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun PauseButton(
+    isPaused: Boolean,
+    enabled: Boolean,
+    onToggle: () -> Unit
+) {
+    val label = if (isPaused) "▶  RESUME" else "⏸  PAUSE"
+    val borderColor = if (isPaused) Accent else SurfaceBorder
+    val bgColor = if (isPaused) Accent.copy(alpha = 0.15f) else Surface
+    val textColor = if (isPaused) Accent else TextPrimary
+    val alpha = if (enabled) 1f else 0.4f
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor)
+            .border(1.dp, if (enabled) borderColor else SurfaceBorder, RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled, onClick = onToggle),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = textColor.copy(alpha = alpha),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 

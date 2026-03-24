@@ -113,6 +113,14 @@ class LappyCapSender(context: Context) {
         sendMessage("""{"type":"shuffle"}""")
     }
 
+    fun sendPause() {
+        sendMessage("""{"type":"pause"}""")
+    }
+
+    fun sendResume() {
+        sendMessage("""{"type":"resume"}""")
+    }
+
     fun sendSettings(cycleDuration: Int, blendDuration: Int, volume: Float) {
         val json = JSONObject().apply {
             put("type", "settings")
