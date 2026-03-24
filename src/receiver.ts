@@ -367,7 +367,16 @@ class LappyCapReceiver {
 
     // Auto-start with Groove Salad so the TV isn't just a black screen.
     // Short delay lets the Cast framework fully settle before we touch the audio element.
-    setTimeout(() => this.startStandalone(), 500);
+    // Start visuals immediately but don't auto-play audio — wait for the sender
+    // to send the 'load' message with the current audio URL and scene.
+    const analyser = this.ensureAudio();
+    if (!this.started) {
+      this.visualizer.init(analyser);
+      this.visualizer.start();
+      this.sceneManager.start();
+      this.started = true;
+      document.getElementById('status')!.textContent = 'Waiting for audio...';
+    }
   }
 
   private handleMessage(senderId: string, msg: ReceiverMessage): void {
