@@ -259,6 +259,40 @@ class LappyCap {
       }
     });
 
+    // Seek bar for DJ sets
+    const seekSlider = document.getElementById('seek-slider') as HTMLInputElement;
+    const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+    let seekDragging = false;
+
+    seekSlider.addEventListener('input', () => {
+      seekDragging = true;
+      const time = (parseFloat(seekSlider.value) / 100) * (audioEl.duration || 0);
+      document.getElementById('seek-current')!.textContent = this.formatTime(time);
+    });
+    seekSlider.addEventListener('change', () => {
+      const time = (parseFloat(seekSlider.value) / 100) * (audioEl.duration || 0);
+      audioEl.currentTime = time;
+      seekDragging = false;
+    });
+
+    document.getElementById('btn-ff')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isFinite(audioEl.duration)) audioEl.currentTime = Math.min(audioEl.duration, audioEl.currentTime + 30);
+    });
+    document.getElementById('btn-rw')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      audioEl.currentTime = Math.max(0, audioEl.currentTime - 30);
+    });
+
+    // Update seek bar position
+    setInterval(() => {
+      if (seekDragging || !isFinite(audioEl.duration) || audioEl.duration === 0) return;
+      const pct = (audioEl.currentTime / audioEl.duration) * 100;
+      seekSlider.value = String(pct);
+      document.getElementById('seek-current')!.textContent = this.formatTime(audioEl.currentTime);
+      document.getElementById('seek-duration')!.textContent = this.formatTime(audioEl.duration);
+    }, 500);
+
     // Cast debug overlay toggle
     document.getElementById('btn-debug-cast')!.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -299,10 +333,20 @@ class LappyCap {
 
       switch (e.key) {
         case 'ArrowRight':
+          if (e.shiftKey) {
+            const ael = document.getElementById('audio-element') as HTMLAudioElement;
+            if (isFinite(ael.duration)) { ael.currentTime = Math.min(ael.duration, ael.currentTime + 30); e.preventDefault(); }
+          } else { this.sceneManager.next(); }
+          break;
         case 'n':
           this.sceneManager.next();
           break;
         case 'ArrowLeft':
+          if (e.shiftKey) {
+            const ael = document.getElementById('audio-element') as HTMLAudioElement;
+            ael.currentTime = Math.max(0, ael.currentTime - 30); e.preventDefault();
+          } else { this.sceneManager.prev(); }
+          break;
         case 'p':
           this.sceneManager.prev();
           break;
@@ -465,8 +509,13 @@ class LappyCap {
         await this.audio.loadURL(url);
         this.audioSourceCreated = true;
       }
-      // Update now-playing display
+      // Update now-playing display and seek bar
       this.updateNowPlaying();
+      // Wait for metadata to determine if seekable
+      const audioEl2 = document.getElementById('audio-element') as HTMLAudioElement;
+      audioEl2.addEventListener('loadedmetadata', () => this.updateSeekBar(), { once: true });
+      // Also check after a short delay for streams that don't fire loadedmetadata
+      setTimeout(() => this.updateSeekBar(), 1000);
       // Forward to Chromecast if connected
       if (this.castSender.isConnected) {
         this.castSender.send({
@@ -926,6 +975,24 @@ class LappyCap {
     const presetName = document.getElementById('preset-name')!;
     controls.classList.remove('hidden');
     presetName.classList.remove('hidden');
+  }
+
+  private formatTime(seconds: number): string {
+    if (!isFinite(seconds)) return '0:00';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const ms = String(m).padStart(h > 0 ? 2 : 1, '0');
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? `${h}:${ms}:${ss}` : `${m}:${ss}`;
+  }
+
+  private updateSeekBar(): void {
+    const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+    const seekBar = document.getElementById('seek-bar')!;
+    // Show seek bar only for finite-duration sources (DJ sets, not live radio)
+    const isSeekable = isFinite(audioEl.duration) && audioEl.duration > 0;
+    seekBar.classList.toggle('visible', isSeekable);
   }
 }
 
