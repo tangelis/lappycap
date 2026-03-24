@@ -226,15 +226,15 @@ class LappyCapReceiver {
 
     const analyser = this.ensureAudio();
 
-    // Connect to Web Audio once — routes all audio through the analyser.
-    // For CORS-safe URLs (R2), the analyser gets frequency data → reactive visuals.
-    // For non-CORS URLs (Icecast), audio still plays but analyser data is zeroed.
-    if (!this.mediaElSource) {
+    // Only connect Web Audio for CORS-safe (R2) URLs.
+    // createMediaElementSource hijacks audio output — if CORS fails on Chromecast,
+    // there's no sound at all. So for Icecast streams, skip Web Audio entirely.
+    if (isCorsSafe && !this.mediaElSource) {
       try {
         this.mediaElSource = this.audioContext!.createMediaElementSource(this.audioEl);
         this.mediaElSource.connect(analyser);
         this.webAudioConnected = true;
-        console.log('[Receiver] Web Audio connected — reactive visuals for CORS-safe sources');
+        console.log('[Receiver] Web Audio connected — audio-reactive visuals enabled');
       } catch (err) {
         console.warn('[Receiver] Web Audio connect failed, playing direct:', err);
       }
