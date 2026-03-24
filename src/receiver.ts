@@ -91,6 +91,8 @@ class LappyCapReceiver {
   private audioWatchdog: ReturnType<typeof setInterval> | null = null;
   private stationNameTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionallyPaused = false;
+  private wakeLock: WakeLockSentinel | null = null;
+  private wakeLockRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -100,6 +102,46 @@ class LappyCapReceiver {
 
     this.initScene(scenes[0]);
     this.initCast();
+    this.acquireWakeLock();
+
+    // Re-acquire wake lock when visibility returns (Android TV may release it on sleep)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Receiver] Visibility restored — re-acquiring wake lock');
+        this.acquireWakeLock();
+      }
+    });
+  }
+
+  /**
+   * Wake Lock: prevents the Android TV from sleeping while LappyCap is casting.
+   * The Screen Wake Lock API is supported in Cast receiver context (Chrome-based).
+   * If the TV OS releases the lock (screen dim/sleep), we retry automatically.
+   */
+  private async acquireWakeLock(): Promise<void> {
+    if (this.wakeLockRetryTimer) {
+      clearTimeout(this.wakeLockRetryTimer);
+      this.wakeLockRetryTimer = null;
+    }
+    if (!('wakeLock' in navigator)) {
+      console.warn('[Receiver] Wake Lock API not available on this device');
+      return;
+    }
+    try {
+      const wl = await (navigator as any).wakeLock.request('screen');
+      this.wakeLock = wl;
+      console.log('[Receiver] Wake lock acquired — screen will stay on');
+      wl.addEventListener('release', () => {
+        console.warn('[Receiver] Wake lock released by OS — will retry in 5s');
+        this.wakeLock = null;
+        // Auto-retry — Android TV may release the lock on certain events
+        this.wakeLockRetryTimer = setTimeout(() => this.acquireWakeLock(), 5000);
+      });
+    } catch (err) {
+      console.warn('[Receiver] Wake lock request failed:', err);
+      // Retry after 30s — may succeed once the page is fully active
+      this.wakeLockRetryTimer = setTimeout(() => this.acquireWakeLock(), 30_000);
+    }
   }
 
   private initScene(scene: Scene): void {
@@ -194,6 +236,8 @@ class LappyCapReceiver {
   private startAudioWatchdog(): void {
     if (this.audioWatchdog) clearInterval(this.audioWatchdog);
     let lastTime = -1;
+    let stallCount = 0;
+
     this.audioWatchdog = setInterval(() => {
       // Don't fight an intentional pause
       if (this.intentionallyPaused) return;
@@ -201,15 +245,30 @@ class LappyCapReceiver {
       if (this.audioEl.paused || this.audioEl.ended) {
         console.warn('[Receiver] Watchdog: audio not playing, restarting...');
         this.audioEl.play().catch(e => console.error('[Receiver] Watchdog restart failed:', e));
+        stallCount = 0;
         return;
       }
-      // Detect stall: currentTime hasn't advanced in 30s
+
+      // Detect stall: currentTime hasn't advanced
       if (lastTime === this.audioEl.currentTime && lastTime !== -1) {
-        console.warn('[Receiver] Watchdog: stream stalled (time frozen at', lastTime, '), reloading...');
-        this.audioEl.load();
-        this.audioEl.play().catch(e => console.error('[Receiver] Watchdog reload failed:', e));
+        stallCount++;
+        console.warn(`[Receiver] Watchdog: stream stalled (tick ${stallCount}, time frozen at ${lastTime})`);
+        if (stallCount >= 2) {
+          // Two consecutive stall ticks (60s total) → hard reload
+          console.warn('[Receiver] Watchdog: hard reload after 60s stall');
+          this.audioEl.load();
+          this.audioEl.play().catch(e => console.error('[Receiver] Watchdog reload failed:', e));
+          stallCount = 0;
+        }
+      } else {
+        stallCount = 0;
       }
       lastTime = this.audioEl.currentTime;
+
+      // Poke the wake lock — if it was released, try to reclaim it
+      if (!this.wakeLock) {
+        this.acquireWakeLock();
+      }
     }, 30_000);
   }
 

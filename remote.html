@@ -693,7 +693,7 @@
       keepaliveTimer = setInterval(() => {
         sendMsg({ type: 'ping' });
         console.log('[Remote] Keepalive ping');
-      }, 120000);
+      }, 30000);
     }
 
     function stopKeepalive() {

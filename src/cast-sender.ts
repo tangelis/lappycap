@@ -173,11 +173,12 @@ export class CastSender {
 
   private startKeepalive(): void {
     this.stopKeepalive();
-    // Ping the receiver every 2 minutes to prevent idle timeout
+    // Ping the receiver every 30s — aggressive enough to prevent Android TV idle kill
+    // (2 minutes was too long; TV OS considers sessions idle after ~60s of quiet)
     this.keepaliveTimer = setInterval(() => {
       this.send({ type: 'ping' } as any);
       console.log('[Cast] Keepalive ping sent');
-    }, 120_000);
+    }, 30_000);
   }
 
   private stopKeepalive(): void {
