@@ -10,6 +10,36 @@ const R2_BASE = 'https://pub-71c7000d74e7419593b3a776ccd3af7e.r2.dev';
 export const djSets: RadioStation[] = [
   // LBL House Party recordings — hosted on Cloudflare R2
   {
+    name: 'XDJ-AZ — REC214',
+    genre: 'DJ Set / 2h24m',
+    url: `${R2_BASE}/sets/REC214.mp3`,
+    homepage: '',
+  },
+  {
+    name: 'XDJ-AZ — REC218',
+    genre: 'DJ Set / 2h59m',
+    url: `${R2_BASE}/sets/REC218.mp3`,
+    homepage: '',
+  },
+  {
+    name: 'XDJ-AZ — REC222',
+    genre: 'DJ Set / 2h43m',
+    url: `${R2_BASE}/sets/REC222.mp3`,
+    homepage: '',
+  },
+  {
+    name: 'XDJ-AZ — REC225',
+    genre: 'DJ Set / 2h33m',
+    url: `${R2_BASE}/sets/REC225.mp3`,
+    homepage: '',
+  },
+  {
+    name: 'XDJ-AZ — REC230',
+    genre: 'DJ Set / 2h28m',
+    url: `${R2_BASE}/sets/REC230.mp3`,
+    homepage: '',
+  },
+  {
     name: 'XDJ-AZ — REC234',
     genre: 'DJ Set / 1h30m',
     url: `${R2_BASE}/sets/REC234.mp3`,
