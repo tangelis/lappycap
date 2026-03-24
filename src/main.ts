@@ -496,14 +496,17 @@ class LappyCap {
         const name = deviceName || 'Chromecast';
         castStatus.textContent = `📺 ${name}`;
         this.showToast(`🎬 Casting to ${name}`, 3000);
-        // Send current state to receiver
+        // Send current state to receiver — delay to let receiver finish booting
         if (this.currentAudioUrl) {
-          this.castSender.send({
+          const sendLoad = () => this.castSender.send({
             type: 'load',
             audioUrl: this.currentAudioUrl,
             sceneName: this.sceneManager.getScene().name,
             stationName: this.getCurrentStationName(),
           });
+          // Send immediately and again after 2s in case receiver wasn't ready
+          sendLoad();
+          setTimeout(sendLoad, 2000);
         }
         // Silence local audio — Chromecast plays its own stream
         // Use volume=0 instead of muted to keep the stream alive for the analyser
