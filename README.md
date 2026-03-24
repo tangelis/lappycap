@@ -57,7 +57,7 @@ It features a **scene system** — curated collections of visual presets that yo
 
 🖥️ **Fullscreen Mode** — Controls auto-hide after 4 seconds, reappear on mouse movement
 
-📺 **Chromecast Ready** — Architecture supports Cast sender/receiver (coming soon)
+📺 **Chromecast** — Full Cast support: launch from Chrome on desktop, control from Android phone via `/remote.html`, visualizer runs natively on Chromecast/Android TV
 
 <p align="center">
   <img src="screenshots/02-preset-controls.png" width="80%" alt="LappyCap controls overlay" />
