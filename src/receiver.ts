@@ -85,6 +85,8 @@ class LappyCapReceiver {
   private visualizer: Visualizer;
   private sceneManager: SceneManager;
   private audioContext: AudioContext | null = null;
+  private mediaElSource: MediaElementAudioSourceNode | null = null;
+  private webAudioConnected = false;
   private analyser: AnalyserNode | null = null;
   private audioEl: HTMLAudioElement;
   private castContext: CastReceiverContext | null = null;
@@ -185,16 +187,33 @@ class LappyCapReceiver {
     console.log('[Receiver] Loading audio:', url);
     this.currentAudioUrl = url;
 
-    // Don't use createMediaElementSource — it hijacks the audio output through
-    // Web Audio, which breaks on Chromecast due to CORS/Icecast issues.
-    // Play audio directly through <audio> element; visualizer uses a disconnected
-    // analyser (presets auto-cycle without audio reactivity, still looks great).
+    // R2 URLs have proper CORS headers, so we can route through Web Audio
+    // for audio-reactive visuals. Icecast streams (SomaFM) don't work with
+    // createMediaElementSource on Chromecast, so those play directly.
+    const isCorsSafe = url.includes('.r2.dev/');
+
+    if (isCorsSafe) {
+      this.audioEl.crossOrigin = 'anonymous';
+    } else {
+      this.audioEl.removeAttribute('crossorigin');
+    }
+
     this.audioEl.src = url;
     this.audioEl.volume = 1;
 
     this.audioEl.onerror = () => {
       const err = this.audioEl.error;
       console.error('[Receiver] Audio error:', err?.message, 'code:', err?.code);
+
+      // If CORS failed, retry without it
+      if (this.audioEl.crossOrigin) {
+        console.log('[Receiver] CORS audio failed, retrying without crossOrigin...');
+        this.audioEl.removeAttribute('crossorigin');
+        this.audioEl.src = url;
+        this.audioEl.play().catch(e => console.error('[Receiver] Non-CORS retry failed:', e));
+        return;
+      }
+
       // Auto-retry after 5s on stream failure (Icecast disconnects happen)
       setTimeout(() => {
         if (this.currentAudioUrl === url) {
@@ -207,6 +226,20 @@ class LappyCapReceiver {
 
     const analyser = this.ensureAudio();
 
+    // Connect to Web Audio once — routes all audio through the analyser.
+    // For CORS-safe URLs (R2), the analyser gets frequency data → reactive visuals.
+    // For non-CORS URLs (Icecast), audio still plays but analyser data is zeroed.
+    if (!this.mediaElSource) {
+      try {
+        this.mediaElSource = this.audioContext!.createMediaElementSource(this.audioEl);
+        this.mediaElSource.connect(analyser);
+        this.webAudioConnected = true;
+        console.log('[Receiver] Web Audio connected — reactive visuals for CORS-safe sources');
+      } catch (err) {
+        console.warn('[Receiver] Web Audio connect failed, playing direct:', err);
+      }
+    }
+
     if (!this.started) {
       this.visualizer.init(analyser);
       this.visualizer.start();
@@ -217,11 +250,10 @@ class LappyCapReceiver {
 
     try {
       await this.audioEl.play();
-      console.log('[Receiver] Audio playing directly (no Web Audio routing)');
+      console.log(`[Receiver] Audio playing (Web Audio: ${this.webAudioConnected})`);
       this.startAudioWatchdog();
     } catch (err) {
       console.error('[Receiver] Audio play failed:', err);
-      // On Chromecast, autoplay may fail on first attempt — retry once after a tick
       setTimeout(() => {
         this.audioEl.play()
           .then(() => {
