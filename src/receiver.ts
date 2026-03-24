@@ -26,6 +26,8 @@ declare const cast: {
         SENDER_CONNECTED: string;
         READY: string;
         ERROR: string;
+        STANDBY_CHANGED: string;
+        VISIBILITY_CHANGED: string;
       };
     };
   };
@@ -104,10 +106,12 @@ class LappyCapReceiver {
     this.initCast();
     this.acquireWakeLock();
 
-    // Re-acquire wake lock when visibility returns (Android TV may release it on sleep)
+    // DOM visibilitychange is unreliable in Cast receiver context — we use
+    // Cast SDK STANDBY_CHANGED + VISIBILITY_CHANGED events in onCastReady() instead.
+    // Keep this as a belt-and-suspenders fallback for non-Cast (standalone) mode.
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        console.log('[Receiver] Visibility restored — re-acquiring wake lock');
+        console.log('[Receiver] DOM visibility restored — re-acquiring wake lock');
         this.acquireWakeLock();
       }
     });
@@ -312,7 +316,42 @@ class LappyCapReceiver {
       cast.framework.system.EventType.SENDER_DISCONNECTED,
       () => {
         console.log('[Receiver] Sender disconnected — continuing playback (disableIdleTimeout is on)');
-        // Keep visualizer alive. The OS won't kill us because disableIdleTimeout is set.
+      }
+    );
+
+    // STANDBY_CHANGED: fired when HDMI-CEC puts the TV into/out of standby.
+    // This is the real root cause of the ~20-minute timeout on Android TV —
+    // the TV's display sleep timer fires CEC standby, which can kill the Cast session.
+    // We use this to log the event and attempt to re-acquire the wake lock on wakeup.
+    this.castContext.addEventListener(
+      cast.framework.system.EventType.STANDBY_CHANGED,
+      (event: any) => {
+        const isStandby = event.isStandby;
+        console.log(`[Receiver] HDMI-CEC standby changed: isStandby=${isStandby}`);
+        if (!isStandby) {
+          // TV woke up — re-acquire wake lock immediately
+          console.log('[Receiver] TV woke from standby — re-acquiring wake lock');
+          this.acquireWakeLock();
+          // Restart audio if it stopped during standby
+          if (!this.intentionallyPaused && this.audioEl.paused && this.currentAudioUrl) {
+            console.log('[Receiver] Resuming audio after standby');
+            this.audioEl.play().catch(e => console.error('[Receiver] Post-standby resume failed:', e));
+          }
+        }
+      }
+    );
+
+    // VISIBILITY_CHANGED: fired when the TV switches HDMI inputs (LappyCap loses/gains display).
+    // Use this to re-acquire wake lock when we become the active input again.
+    this.castContext.addEventListener(
+      cast.framework.system.EventType.VISIBILITY_CHANGED,
+      (event: any) => {
+        const isVisible = event.isVisible;
+        console.log(`[Receiver] Cast visibility changed: isVisible=${isVisible}`);
+        if (isVisible) {
+          console.log('[Receiver] Cast became visible — re-acquiring wake lock');
+          this.acquireWakeLock();
+        }
       }
     );
 
