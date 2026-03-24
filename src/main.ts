@@ -3,7 +3,7 @@ import { Visualizer } from './visualizer';
 import { SceneManager } from './scene-manager';
 import { loadPresetsForScene } from './preset-loader';
 import { scenes } from './scenes';
-import { radioStations } from './radio-stations';
+import { radioStations, djSets } from './radio-stations';
 import { CastSender } from './cast-sender';
 import { Playlist, formatDuration } from './playlist';
 import type { PlaylistTrack } from './playlist';
@@ -844,12 +844,28 @@ class LappyCap {
 
   private populateRadioSelector(): void {
     const select = document.getElementById('radio-select') as HTMLSelectElement;
+
+    if (djSets.length > 0) {
+      const setsGroup = document.createElement('optgroup');
+      setsGroup.label = 'DJ Sets';
+      for (const set of djSets) {
+        const opt = document.createElement('option');
+        opt.value = set.url;
+        opt.textContent = `${set.name} — ${set.genre}`;
+        setsGroup.appendChild(opt);
+      }
+      select.appendChild(setsGroup);
+    }
+
+    const radioGroup = document.createElement('optgroup');
+    radioGroup.label = 'Radio Stations';
     for (const station of radioStations) {
       const opt = document.createElement('option');
       opt.value = station.url;
       opt.textContent = `${station.name} — ${station.genre}`;
-      select.appendChild(opt);
+      radioGroup.appendChild(opt);
     }
+    select.appendChild(radioGroup);
   }
 
   private populateSceneSelector(): void {

@@ -5,6 +5,30 @@ export interface RadioStation {
   homepage: string;
 }
 
+const R2_BASE = 'https://pub-71c7000d74e7419593b3a776ccd3af7e.r2.dev';
+
+export const djSets: RadioStation[] = [
+  // LBL House Party recordings — hosted on Cloudflare R2
+  {
+    name: 'XDJ-AZ — REC234',
+    genre: 'DJ Set / 1h30m',
+    url: `${R2_BASE}/sets/REC234.mp3`,
+    homepage: '',
+  },
+  {
+    name: 'XDJ-AZ — REC235',
+    genre: 'DJ Set / 1h37m',
+    url: `${R2_BASE}/sets/REC235.mp3`,
+    homepage: '',
+  },
+  {
+    name: 'XDJ-AZ — REC236',
+    genre: 'DJ Set / 2h01m',
+    url: `${R2_BASE}/sets/REC236.mp3`,
+    homepage: '',
+  },
+];
+
 export const radioStations: RadioStation[] = [
   // SomaFM — all streams serve CORS headers
   {
