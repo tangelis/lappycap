@@ -32,6 +32,9 @@ export class Visualizer {
   private hidden: boolean = false;
   private renderErrorCount: number = 0;
   private static readonly MAX_RENDER_ERRORS = 50;
+  private fpsFrameCount: number = 0;
+  private fpsLastCheck: number = 0;
+  private currentFps: number = 0;
 
   onPresetChange?: (name: string) => void;
 
@@ -185,6 +188,10 @@ export class Visualizer {
   }
 
   /** Set target FPS (lower = slower visuals). Range: 10-60 */
+  get fps(): number {
+    return this.currentFps;
+  }
+
   setSpeed(fps: number): void {
     this.targetFps = Math.max(10, Math.min(60, fps));
   }
@@ -199,9 +206,16 @@ export class Visualizer {
     if (now - this.lastRenderTime < interval) return;
     this.lastRenderTime = now;
 
+    // FPS tracking
+    this.fpsFrameCount++;
+    if (now - this.fpsLastCheck >= 1000) {
+      this.currentFps = this.fpsFrameCount;
+      this.fpsFrameCount = 0;
+      this.fpsLastCheck = now;
+    }
+
     try {
       this.renderer.render();
-      // Reset error count on successful render
       if (this.renderErrorCount > 0) this.renderErrorCount = 0;
     } catch (err) {
       this.renderErrorCount++;

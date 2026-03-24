@@ -499,6 +499,7 @@ class LappyCapReceiver {
     }
 
     const lines = [
+      `FPS: ${this.visualizer.fps}`,
       `Web Audio: ${this.webAudioConnected ? 'YES' : 'NO'}`,
       `Analyser data: ${hasData ? 'YES' : 'NO (zeroed)'}`,
       `Audio level: ${audioLevel} / peak: ${peak}`,
