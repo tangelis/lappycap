@@ -503,6 +503,7 @@ class LappyCap {
     try {
       if (this.audioSourceCreated) {
         const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+        audioEl.crossOrigin = 'anonymous';
         audioEl.src = url;
         await audioEl.play();
       } else {
