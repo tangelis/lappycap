@@ -59,6 +59,7 @@ interface LoadMessage {
   sceneName?: string;
   stationName?: string;
   volume?: number;
+  seekTime?: number;
 }
 
 interface SceneMessage {
@@ -415,7 +416,13 @@ class LappyCapReceiver {
         if (msg.volume !== undefined) {
           this.audioEl.volume = Math.max(0, Math.min(1, msg.volume));
         }
-        this.playAudio(msg.audioUrl).catch(err => {
+        this.playAudio(msg.audioUrl).then(() => {
+          // Seek to the sender's current position (for DJ sets)
+          if (msg.seekTime && isFinite(msg.seekTime) && msg.seekTime > 0) {
+            this.audioEl.currentTime = msg.seekTime;
+            console.log('[Receiver] Seeked to', msg.seekTime);
+          }
+        }).catch(err => {
           console.error('[Receiver] Audio load failed:', err);
         });
         // Show station name on TV if provided

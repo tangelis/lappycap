@@ -554,11 +554,13 @@ class LappyCap {
         this.showToast(`🎬 Casting to ${name}`, 3000);
         // Send current state to receiver — delay to let receiver finish booting
         if (this.currentAudioUrl) {
+          const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
           const sendLoad = () => this.castSender.send({
             type: 'load',
             audioUrl: this.currentAudioUrl,
             sceneName: this.sceneManager.getScene().name,
             stationName: this.getCurrentStationName(),
+            seekTime: isFinite(audioEl.duration) ? audioEl.currentTime : undefined,
           });
           // Send immediately and again after 2s in case receiver wasn't ready
           sendLoad();

@@ -50,7 +50,7 @@ interface CastSession {
 }
 
 export type CastMessage =
-  | { type: 'load'; audioUrl: string; sceneName?: string; stationName?: string; volume?: number }
+  | { type: 'load'; audioUrl: string; sceneName?: string; stationName?: string; volume?: number; seekTime?: number }
   | { type: 'scene'; sceneName: string }
   | { type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume' }
   | { type: 'settings'; cycleDuration?: number; blendDuration?: number; volume?: number };
