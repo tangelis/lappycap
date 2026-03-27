@@ -46,8 +46,8 @@ export class AudioManager {
       this.source = null;
     }
 
-    this.audioEl.src = url;
     this.audioEl.crossOrigin = 'anonymous';
+    this.audioEl.src = url;
 
     // MediaElementSource can only be created once per element per context
     if (!this.mediaElSource) {

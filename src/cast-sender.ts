@@ -52,7 +52,7 @@ interface CastSession {
 export type CastMessage =
   | { type: 'load'; audioUrl: string; sceneName?: string; stationName?: string; volume?: number; seekTime?: number }
   | { type: 'scene'; sceneName: string }
-  | { type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume' }
+  | { type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume' | 'ping' | 'debug' }
   | { type: 'settings'; cycleDuration?: number; blendDuration?: number; volume?: number };
 
 export class CastSender {
@@ -176,7 +176,7 @@ export class CastSender {
     // Ping the receiver every 30s — aggressive enough to prevent Android TV idle kill
     // (2 minutes was too long; TV OS considers sessions idle after ~60s of quiet)
     this.keepaliveTimer = setInterval(() => {
-      this.send({ type: 'ping' } as any);
+      this.send({ type: 'ping' });
       console.log('[Cast] Keepalive ping sent');
     }, 30_000);
   }

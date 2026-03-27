@@ -296,7 +296,7 @@ class LappyCap {
     // Cast debug overlay toggle
     document.getElementById('btn-debug-cast')!.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.castSender.send({ type: 'debug' } as any);
+      this.castSender.send({ type: 'debug' });
     });
 
     // Mic input (toggle)
@@ -363,7 +363,7 @@ class LappyCap {
           const idx = Math.floor(Math.random() * radioStations.length);
           const station = radioStations[idx];
           (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
-          this.playAudioURL(station.url);
+          this.playAudioURL(station.url).catch(err => console.error('Radio error:', err));
           break;
         }
         case ' ':

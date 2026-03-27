@@ -68,7 +68,7 @@ interface SceneMessage {
 }
 
 interface ControlMessage {
-  type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume' | 'debug';
+  type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume' | 'debug' | 'ping';
 }
 
 interface SettingsMessage {
@@ -466,6 +466,9 @@ class LappyCapReceiver {
         break;
       case 'debug':
         this.toggleDebug();
+        break;
+      case 'ping':
+        // Keepalive — no action needed, message receipt resets inactivity timer
         break;
       case 'settings':
         if (msg.cycleDuration !== undefined) this.sceneManager.setCycleDuration(msg.cycleDuration);

@@ -385,6 +385,15 @@
         color: rgba(255,255,255,0.35);
         text-align: center;
       }
+      @media (max-width: 600px) {
+        #controls { padding: 8px; gap: 6px; }
+        .controls-row { gap: 6px; }
+        select { min-width: 0 !important; max-width: 120px; font-size: 12px; }
+        button { padding: 4px 8px; font-size: 12px; }
+        .label { font-size: 10px; }
+        #seek-bar .seek-btns { display: none; }
+        #playlist-panel { max-height: 40vh; }
+      }
     </style>
   </head>
   <body>
@@ -507,7 +516,7 @@
         </div>
       </div>
     </div>
-    <audio id="audio-element" crossorigin="anonymous"></audio>
+    <audio id="audio-element"></audio>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
