@@ -381,6 +381,7 @@ export default function VisualizerPage() {
 
               <div className="flex flex-wrap items-center gap-2">
                 <select
+                  aria-label="SomaFM station"
                   className="rounded-xl border border-white/10 px-3 py-2 text-sm bg-slate-950/80 text-white min-w-[14rem]"
                   value={somafm.currentChannel?.id ?? ""}
                   onChange={(e) => activateChannel(e.target.value)}
