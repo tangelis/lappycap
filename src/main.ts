@@ -96,14 +96,14 @@ class LappyCap {
       const startOnInteraction = async () => {
         document.removeEventListener('click', startOnInteraction);
         document.removeEventListener('keydown', startOnInteraction);
-        await this.startVisualizer();
-        // Use station URL param if provided, otherwise default to Groove Salad
+        // Wire URL audio into the analyser before Butterchurn connects so the first frame has real spectrum data.
         const stationParam = urlParams.get('station');
         const station = stationParam
           ? (radioStations.find(r => r.name.toLowerCase() === stationParam.toLowerCase()) ?? radioStations[0])
           : radioStations[0];
         await this.playAudioURL(station.url);
         (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
+        await this.startVisualizer();
       };
       document.addEventListener('click', startOnInteraction);
       document.addEventListener('keydown', startOnInteraction);

@@ -18,6 +18,9 @@ export class AudioManager {
       this.analyser = this.context.createAnalyser();
       this.analyser.fftSize = 2048;
       this.analyser.smoothingTimeConstant = 0.75;
+      // Tighter dB window so quiet streams and radio still move the visuals clearly
+      this.analyser.minDecibels = -85;
+      this.analyser.maxDecibels = -25;
 
       // Gain node sits between analyser and destination
       // so we can mute output for mic mode (prevent feedback)
