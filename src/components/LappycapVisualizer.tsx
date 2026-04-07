@@ -34,6 +34,9 @@ export type LappycapVisualizerProps = {
   onVisualizerQualityChange?: (profile: VisualizerQualityProfile) => void;
   onVisualizerAdaptiveDiagnostics?: (diagnostics: VisualizerAdaptiveDiagnostics) => void;
   qualityUserMode?: VisualizerQualityUserMode;
+  playbackActive?: boolean;
+  currentStationTitle?: string | null;
+  onStartPlayback?: () => void;
   immersiveMode?: boolean;
   controlsVisible?: boolean;
   isFullscreen?: boolean;
@@ -74,6 +77,9 @@ export function LappycapVisualizer({
   onVisualizerQualityChange,
   onVisualizerAdaptiveDiagnostics,
   qualityUserMode = "auto",
+  playbackActive = false,
+  currentStationTitle = null,
+  onStartPlayback,
   immersiveMode = false,
   controlsVisible = true,
   isFullscreen = false,
@@ -96,6 +102,22 @@ export function LappycapVisualizer({
   const hueRotate = cueIndex * 42 + tempo * 0.35;
   const frequencyBands = liveAudio?.frequencyBands ?? [];
   const quality = visualizerQuality;
+  const displayVisualName = visualPresetName
+    ? visualPresetName
+    : playbackActive
+      ? quality?.tier === "fallback"
+        ? "Reduced FX reactive mode"
+        : "Loading live visual..."
+      : currentStationTitle
+        ? `Ready: ${currentStationTitle}`
+        : "Choose a station";
+  const playbackHint = playbackActive
+    ? quality?.tier === "fallback"
+      ? "Audio is live. Running the lighter reactive layer for smoother playback."
+      : "Audio is live and the visualizer is reacting in real time."
+    : currentStationTitle
+      ? `Press Play to start ${currentStationTitle} and wake up the visualizer.`
+      : "Pick a station to begin live audio-reactive visuals.";
   const barGlow = quality?.showFrequencyBarGlow !== false;
   const strictContain = quality?.useStrictContainment === true;
   const backdropClass = quality?.showBackdropBlur ? "backdrop-blur-md" : "";
@@ -120,7 +142,7 @@ export function LappycapVisualizer({
     >
       <ButterchurnVisualizer
         analyserNode={analyserNode}
-        active={Boolean(liveAudio)}
+        active={Boolean(analyserNode && (playbackActive || Boolean(liveAudio)))}
         className="absolute inset-0"
         tuning={visualizerTuning}
         transitionNonce={transitionNonce}
@@ -159,14 +181,12 @@ export function LappycapVisualizer({
       >
         <div className={`rounded-2xl border border-white/10 bg-black/35 px-4 py-3 max-w-[70%] ${backdropClass}`}>
           <div className="text-[11px] uppercase tracking-[0.2em] text-cyan-200/80">
-            Current preset
+            Current visual
           </div>
           <div className="mt-1 text-sm md:text-base font-medium text-white truncate">
-            {visualPresetName ?? "Waiting for playback"}
+            {displayVisualName}
           </div>
-          {session?.sceneName ? (
-            <div className="mt-1 text-xs text-slate-300 truncate">{session.sceneName}</div>
-          ) : null}
+          <div className="mt-1 text-xs text-slate-300 truncate">{session?.sceneName ?? playbackHint}</div>
         </div>
         <div className="flex items-start gap-2">
           <div className={`rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-right ${backdropClass}`}>
@@ -207,6 +227,30 @@ export function LappycapVisualizer({
           ) : null}
         </div>
       </div>
+
+      {!playbackActive ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center px-6 pointer-events-none">
+          <div className="max-w-md rounded-3xl border border-white/12 bg-black/45 px-5 py-5 text-center shadow-2xl pointer-events-auto">
+            <div className="text-xs uppercase tracking-[0.22em] text-cyan-200/80">Live audio</div>
+            <div className="mt-2 text-xl md:text-2xl font-semibold text-white">
+              {currentStationTitle ? `${currentStationTitle} is ready` : "Start playback"}
+            </div>
+            <p className="mt-2 text-sm text-slate-300">{playbackHint}</p>
+            {onStartPlayback ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onStartPlayback();
+                }}
+                className="mt-4 inline-flex items-center justify-center rounded-2xl bg-emerald-500/95 px-5 py-3 text-sm font-medium text-white hover:bg-emerald-400"
+              >
+                {currentStationTitle ? `Play ${currentStationTitle}` : "Play station"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {visibleFrequencyBands.length > 0 ? (
         <div

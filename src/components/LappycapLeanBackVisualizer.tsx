@@ -35,6 +35,9 @@ export type LappycapLeanBackVisualizerProps = {
   onVisualizerQualityChange?: (profile: VisualizerQualityProfile) => void;
   onVisualizerAdaptiveDiagnostics?: (diagnostics: VisualizerAdaptiveDiagnostics) => void;
   qualityUserMode?: VisualizerQualityUserMode;
+  playbackActive?: boolean;
+  currentStationTitle?: string | null;
+  onStartPlayback?: () => void;
   immersiveMode?: boolean;
   controlsVisible?: boolean;
   isFullscreen?: boolean;
@@ -108,6 +111,9 @@ export function LappycapLeanBackVisualizer({
   onVisualizerQualityChange,
   onVisualizerAdaptiveDiagnostics,
   qualityUserMode = "auto",
+  playbackActive = false,
+  currentStationTitle = null,
+  onStartPlayback,
   immersiveMode = false,
   controlsVisible = true,
   isFullscreen = false,
@@ -125,6 +131,22 @@ export function LappycapLeanBackVisualizer({
   const throttled = useThrottledLiveAudio(liveAudio, LEANBACK_LIVE_UI_INTERVAL_MS);
   const level = liveAudio ? throttled.level : energy;
   const bands = liveAudio ? throttled.bands.slice(0, 4) : [];
+  const displayVisualName = visualPresetName
+    ? visualPresetName
+    : playbackActive
+      ? visualizerQuality?.tier === "fallback"
+        ? "Reduced FX reactive mode"
+        : "Loading live visual..."
+      : currentStationTitle
+        ? `Ready: ${currentStationTitle}`
+        : "Start playback";
+  const playbackHint = playbackActive
+    ? visualizerQuality?.tier === "fallback"
+      ? "Audio is live with the lean-back reduced-effects renderer."
+      : "Audio is live and visuals are reacting."
+    : currentStationTitle
+      ? `Press Play to start ${currentStationTitle}.`
+      : "Pick a station and press Play.";
   const overlayClass = controlsVisible
     ? "opacity-100 translate-y-0 pointer-events-auto"
     : "opacity-0 translate-y-4 pointer-events-none";
@@ -141,7 +163,7 @@ export function LappycapLeanBackVisualizer({
     >
       <ButterchurnVisualizer
         analyserNode={analyserNode}
-        active={Boolean(liveAudio)}
+        active={Boolean(analyserNode && (playbackActive || Boolean(liveAudio)))}
         className="absolute inset-0"
         tuning={visualizerTuning}
         transitionNonce={transitionNonce}
@@ -168,11 +190,9 @@ export function LappycapLeanBackVisualizer({
           <div className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-black/55 px-4 py-3">
             <div className="text-xs uppercase tracking-[0.18em] text-cyan-200/85">Now showing</div>
             <div className="mt-1 text-lg md:text-xl font-semibold text-white leading-tight truncate">
-              {visualPresetName ?? "Waiting for playback"}
+              {displayVisualName}
             </div>
-            {session?.sceneName ? (
-              <div className="mt-1 text-sm text-slate-300 truncate">{session.sceneName}</div>
-            ) : null}
+            <div className="mt-1 text-sm text-slate-300 truncate">{session?.sceneName ?? playbackHint}</div>
           </div>
           <div className="flex flex-wrap items-stretch gap-2">
             {visualizerQuality ? (
@@ -201,6 +221,30 @@ export function LappycapLeanBackVisualizer({
           </div>
         </div>
       </div>
+
+      {!playbackActive ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center px-6 pointer-events-none">
+          <div className="max-w-xl rounded-3xl border border-white/15 bg-black/65 px-6 py-6 text-center pointer-events-auto">
+            <div className="text-xs uppercase tracking-[0.18em] text-cyan-200/80">SomaFM ready</div>
+            <div className="mt-2 text-2xl md:text-3xl font-semibold text-white">
+              {currentStationTitle ? currentStationTitle : "Select a station"}
+            </div>
+            <p className="mt-3 text-base text-slate-200">{playbackHint}</p>
+            {onStartPlayback ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartPlayback();
+                }}
+                className="mt-5 min-h-[52px] rounded-2xl bg-emerald-500 px-6 text-base font-medium text-white hover:bg-emerald-400"
+              >
+                {currentStationTitle ? `Play ${currentStationTitle}` : "Play station"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {/* Level meter: one cheap div, no shadows */}
       <div

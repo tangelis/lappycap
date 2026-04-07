@@ -18,6 +18,8 @@ function verifyPassword(password: string, storedHash: string): Promise<boolean> 
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  /** Required for non-default hosts/ports (e.g. Playwright on 127.0.0.1:3333). */
+  trustHost: true,
   providers: [
     CredentialsProvider({
       name: 'credentials',

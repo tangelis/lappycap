@@ -305,6 +305,9 @@ export default function VisualizerPage() {
             session={sessionView}
             influence={influence}
             liveAudio={somafm.liveData}
+            playbackActive={somafm.isPlaying}
+            currentStationTitle={somafm.currentChannel?.title ?? null}
+            onStartPlayback={() => activateChannel(somafm.currentChannel?.id)}
             analyserNode={somafm.analyserNode}
             visualPresetName={visualPresetName}
             visualizerTuning={tuning}
@@ -332,6 +335,9 @@ export default function VisualizerPage() {
             session={sessionView}
             influence={influence}
             liveAudio={somafm.liveData}
+            playbackActive={somafm.isPlaying}
+            currentStationTitle={somafm.currentChannel?.title ?? null}
+            onStartPlayback={() => activateChannel(somafm.currentChannel?.id)}
             analyserNode={somafm.analyserNode}
             visualPresetName={visualPresetName}
             visualizerTuning={tuning}

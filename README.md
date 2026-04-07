@@ -44,6 +44,21 @@ This branch is **nest-legacy**, derived from nest-home v1.5: Next.js, Drizzle, P
 *   **Local development:** See **[deploy/README.md](./deploy/README.md)** for Postgres in Docker, `.env.local`, and running the app.
 *   **GCP deployment:** The **nest-legacy** GCP project runs this app on Cloud Run with Cloud SQL (PostgreSQL). Access is restricted to the org/domain via IAM (`roles/run.invoker`). See **[docs/GCP_DEPLOYMENT.md](./docs/GCP_DEPLOYMENT.md)** for the general GCP guide and **[docs/SECURITY_ASSESSMENT_FOR_REVIEW.md](./docs/SECURITY_ASSESSMENT_FOR_REVIEW.md)** for a security review checklist.
 
+## Testing & QA
+
+| Command | What it runs |
+|--------|----------------|
+| `npm run test:unit` | Vitest — core Lappycap parsers/runtime, SomaFM helpers, Butterchurn utils, `LappycapVisualizer` (stubbed canvas). |
+| `npm run test:e2e` | Playwright — app flows including **`e2e/visualizer.spec.ts`** (mocked SomaFM `channels.json`). |
+| `npm run test:e2e:visualizer` | Only the visualizer functional specs. |
+| `npm run test:qa` | `test:unit` then `test:e2e` (full gate). |
+
+Playwright starts its own server on **`http://127.0.0.1:3333`** by default (`PLAYWRIGHT_PORT` / `PLAYWRIGHT_BASE_URL` override). It runs **`npm run build` + `next start`** so it does not conflict with another `next dev` (dev lock). To point at an already-running app: `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:e2e`.
+
+Dashboard routes are protected by **`src/middleware.ts`** (`/dashboard/*` only); **`/visualizer`** stays public for the demo.
+
+Authenticated dashboard E2E (`e2e/dashboard.spec.ts`, etc.) needs `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` in the environment or those tests skip.
+
 ## Google Cloud Platform (GCP) Deployment
 
 This project can be deployed to GCP using **Terraform** for infrastructure and **Cloud Build** for CI/CD. The **nest-legacy** production deployment uses Cloud Run + Cloud SQL (no Terraform in this repo); IAM is used to restrict invocation to the organization.

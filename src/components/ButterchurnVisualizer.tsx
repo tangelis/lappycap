@@ -226,6 +226,7 @@ export function ButterchurnVisualizer({
       slowFrameWindowsRef.current = 0;
 
       if (!qualityProfile.useButterchurn) {
+        onPresetChange?.(qualityProfile.label);
         return;
       }
 

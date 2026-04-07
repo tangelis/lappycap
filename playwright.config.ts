@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+/** Dedicated port so Playwright does not attach to an unrelated app on :3000 when reuseExistingServer is true. */
+const defaultPort = process.env.PLAYWRIGHT_PORT ?? '3333';
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${defaultPort}`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -19,13 +22,14 @@ export default defineConfig({
     { name: 'mobile-chrome', use: { ...devices['Pixel 5'] } },
     { name: 'mobile-safari', use: { ...devices['iPhone 13'] } },
   ],
-  // When PLAYWRIGHT_BASE_URL is set (e.g. http://localhost:3002), app is assumed running; otherwise start dev server.
-  webServer: process.env.PLAYWRIGHT_BASE_URL || process.env.CI
+  // When PLAYWRIGHT_BASE_URL is set, the app is assumed running; otherwise start dev on PLAYWRIGHT_PORT (default 3333).
+  webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: 'npm run dev',
+        /** Production server avoids `.next/dev/lock` clashes when a separate `next dev` is already running. */
+        command: `sh -c 'npm run build && npx next start -H 127.0.0.1 -p ${defaultPort}'`,
         url: baseURL,
-        reuseExistingServer: true,
-        timeout: 60_000,
+        reuseExistingServer: false,
+        timeout: 300_000,
       },
 });
