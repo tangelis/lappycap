@@ -20,6 +20,7 @@ declare const cast: {
       getInstance(): CastReceiverContext;
     };
     PlayerManager: new () => PlayerManager;
+    messages: CastMessagesNamespace;
     system: {
       EventType: {
         SENDER_DISCONNECTED: string;
@@ -33,8 +34,32 @@ declare const cast: {
   };
 };
 
+/** CAF message classes (subset) — used for backdrop / minimized Cast “now playing”. */
+interface CastMessagesNamespace {
+  MediaInformation: new () => CastMediaInformation;
+  MusicTrackMediaMetadata: new () => CastMusicTrackMediaMetadata;
+  StreamType: { BUFFERED: number; LIVE: number };
+  MetadataType: { MUSIC_TRACK: number };
+}
+
+interface CastMediaInformation {
+  contentId: string;
+  contentUrl: string;
+  streamType: number;
+  contentType: string;
+  duration?: number;
+  metadata?: CastMusicTrackMediaMetadata;
+}
+
+interface CastMusicTrackMediaMetadata {
+  type: number;
+  title: string;
+  artist: string;
+}
+
 interface PlayerManager {
   setMediaElement(el: HTMLMediaElement): void;
+  setMediaInformation(mediaInformation: CastMediaInformation, optBroadcast?: boolean): void;
 }
 
 interface CastReceiverContext {
@@ -112,6 +137,9 @@ class LappyCapReceiver {
   private suspendedBySignalTimeout = false;
   private lastControlSignalAt = Date.now();
   private controlWatchdog: ReturnType<typeof setInterval> | null = null;
+  /** Title shown in Cast backdrop / Android TV when the receiver UI is not visible. */
+  private nowPlayingTitle = '';
+  private castMediaHooksBound = false;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -134,6 +162,14 @@ class LappyCapReceiver {
         this.acquireWakeLock();
       }
     });
+
+    const bumpCastMedia = () => this.syncCastMediaSession();
+    if (!this.castMediaHooksBound) {
+      this.castMediaHooksBound = true;
+      this.audioEl.addEventListener('loadedmetadata', bumpCastMedia);
+      this.audioEl.addEventListener('playing', bumpCastMedia);
+      this.audioEl.addEventListener('pause', bumpCastMedia);
+    }
   }
 
   /** True when the TV / tab context should not keep audio or the render loop running. */
@@ -168,6 +204,74 @@ class LappyCapReceiver {
         }
       }
     }, 10_000);
+  }
+
+  private titleFromAudioUrl(url: string): string {
+    const part = url.split('?')[0].split('/').pop() || '';
+    const stripped = part.replace(/\.(mp3|m4a|aac|ogg|opus)$/i, '');
+    return stripped ? stripped.replace(/[-_+]/g, ' ') : 'LappyCap';
+  }
+
+  /**
+   * Push title + scene into CAF PlayerManager and Media Session so the Cast backdrop,
+   * Google TV ambient display, and phone remote “now playing” stay correct when this
+   * receiver page is not on screen.
+   */
+  private syncCastMediaSession(): void {
+    const url = this.currentAudioUrl;
+    if (!url) return;
+
+    const title = (this.nowPlayingTitle && this.nowPlayingTitle.trim()) || this.titleFromAudioUrl(url);
+    const sceneName = this.sceneManager.getScene().name;
+
+    if (this.castContext) {
+      try {
+        const fw = (globalThis as unknown as { cast?: { framework: { messages: CastMessagesNamespace } } }).cast
+          ?.framework;
+        if (fw?.messages) {
+          const messages = fw.messages;
+          const playerManager = this.castContext.getPlayerManager();
+          const media = new messages.MediaInformation();
+          media.contentId = url;
+          media.contentUrl = url;
+          const dur = this.audioEl.duration;
+          const buffered = isFinite(dur) && dur > 0;
+          media.streamType = buffered ? messages.StreamType.BUFFERED : messages.StreamType.LIVE;
+          media.contentType = 'audio/mpeg';
+          if (buffered) media.duration = dur;
+          const meta = new messages.MusicTrackMediaMetadata();
+          meta.type = messages.MetadataType.MUSIC_TRACK;
+          meta.title = title;
+          meta.artist = sceneName;
+          media.metadata = meta;
+          playerManager.setMediaInformation(media, true);
+        }
+      } catch (err) {
+        console.warn('[Receiver] syncCastMediaSession (Cast) failed:', err);
+      }
+    }
+
+    try {
+      if ('mediaSession' in navigator && navigator.mediaSession) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title,
+          artist: sceneName,
+          album: 'LappyCap',
+        });
+      }
+    } catch {
+      /* MediaMetadata unsupported on some embeds */
+    }
+  }
+
+  private clearLockScreenMetadata(): void {
+    try {
+      if ('mediaSession' in navigator && navigator.mediaSession) {
+        navigator.mediaSession.metadata = null;
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   /**
@@ -330,6 +434,7 @@ class LappyCapReceiver {
       await this.audioEl.play();
       console.log(`[Receiver] Audio playing (Web Audio: ${this.webAudioConnected})`);
       this.startAudioWatchdog();
+      this.syncCastMediaSession();
     } catch (err) {
       console.error('[Receiver] Audio play failed:', err);
       setTimeout(() => {
@@ -337,6 +442,7 @@ class LappyCapReceiver {
           .then(() => {
             console.log('[Receiver] Audio playing (retry succeeded)');
             this.startAudioWatchdog();
+            this.syncCastMediaSession();
           })
           .catch(e => console.error('[Receiver] Audio retry also failed:', e));
       }, 1000);
@@ -496,6 +602,7 @@ class LappyCapReceiver {
       case 'load': {
         this.suspendedByNoSenders = false;
         this.intentionallyPaused = false; // new load always resumes
+        this.nowPlayingTitle = (msg.stationName && msg.stationName.trim()) || this.titleFromAudioUrl(msg.audioUrl);
         if (msg.sceneName) {
           const scene = scenes.find(s => s.name === msg.sceneName);
           if (scene) this.initScene(scene);
@@ -509,6 +616,7 @@ class LappyCapReceiver {
             this.audioEl.currentTime = msg.seekTime;
             console.log('[Receiver] Seeked to', msg.seekTime);
           }
+          this.syncCastMediaSession();
         }).catch(err => {
           console.error('[Receiver] Audio load failed:', err);
         });
@@ -516,11 +624,13 @@ class LappyCapReceiver {
         if (msg.stationName) {
           this.showStationName(msg.stationName);
         }
+        this.syncCastMediaSession();
         // Acknowledge
         this.castContext?.sendCustomMessage(NAMESPACE, senderId, {
           type: 'status',
           playing: true,
           scene: this.sceneManager.getScene().name,
+          stationName: this.nowPlayingTitle,
         });
         break;
       }
@@ -530,12 +640,14 @@ class LappyCapReceiver {
           this.initScene(scene);
           if (this.started) this.sceneManager.start();
         }
+        this.syncCastMediaSession();
         break;
       }
       case 'pause':
         this.markControlSignal('pause');
         this.intentionallyPaused = true;
         this.audioEl.pause();
+        this.syncCastMediaSession();
         console.log('[Receiver] Paused by sender');
         break;
       case 'resume':
@@ -545,6 +657,7 @@ class LappyCapReceiver {
         if (!this.isPlaybackSuspended()) {
           this.audioEl.play().catch(e => console.error('[Receiver] Resume failed:', e));
         }
+        this.syncCastMediaSession();
         console.log('[Receiver] Resumed by sender');
         break;
       case 'stop':
@@ -552,6 +665,7 @@ class LappyCapReceiver {
         this.intentionallyPaused = true;
         this.audioEl.pause();
         this.visualizer.stop();
+        this.clearLockScreenMetadata();
         console.log('[Receiver] Stopped by sender');
         break;
       case 'next':
@@ -646,6 +760,7 @@ class LappyCapReceiver {
     status.innerHTML = 'LappyCap Receiver<br><small>Standalone mode — pick a station</small>';
 
     const defaultStation = defaultPlaybackStation;
+    this.nowPlayingTitle = defaultStation.name;
     this.playAudio(defaultStation.url).then(() => {
       status.classList.add('hidden');
       this.showStationName(defaultStation.name);
