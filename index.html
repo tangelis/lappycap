@@ -133,6 +133,11 @@
         color: rgba(255,255,255,0.6);
         letter-spacing: 1px;
         animation: pulse-glow 2.5s ease-in-out infinite;
+        white-space: pre-line;
+        text-align: center;
+        max-width: min(92vw, 26rem);
+        line-height: 1.45;
+        padding: 0 12px;
       }
       @keyframes pulse-glow {
         0%, 100% { color: rgba(255,255,255,0.4); }
@@ -190,7 +195,8 @@
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         text-align: center;
-        white-space: nowrap;
+        white-space: normal;
+        max-width: min(92vw, 20rem);
       }
       #toast.visible { opacity: 1; }
 
@@ -385,6 +391,15 @@
         color: rgba(255,255,255,0.35);
         text-align: center;
       }
+      .help-tips {
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255,255,255,0.12);
+        font-size: 12px;
+        color: rgba(255,255,255,0.65);
+        line-height: 1.55;
+      }
+      .help-tips strong { color: rgba(255,255,255,0.9); }
       @media (max-width: 600px) {
         #controls { padding: 8px; gap: 6px; }
         .controls-row { gap: 6px; }
@@ -414,16 +429,18 @@
           <button id="btn-shuffle" title="Toggle shuffle">Shuffle</button>
           <span class="label" id="preset-counter">1 / 1</span>
           <div style="flex:1"></div>
-          <select id="scene-select"></select>
-          <select id="radio-select" style="min-width:160px">
-            <option value="">-- Station --</option>
-          </select>
-          <button id="btn-shuffle-station" title="Random station">&#127922;</button>
+          <span class="label">Scene</span>
+          <select id="scene-select" title="Visual style (presets cycle inside this scene)"></select>
+          <span class="label">Sound</span>
+          <select id="radio-select" style="min-width:160px" title="DJ sets (seekable) or live SomaFM radio"></select>
+          <button id="btn-shuffle-station" title="Random DJ set or radio station">&#127922;</button>
           <button id="btn-mic" title="Use microphone">Mic</button>
           <button id="btn-playlist" title="Playlist">📋</button>
-          <button id="btn-settings" title="Settings">&#9881;</button>
-          <google-cast-launcher id="cast-launcher" title="Cast to Chromecast"></google-cast-launcher>
-          <button id="btn-cast" title="Cast to Chromecast" class="cast-unavailable">Cast</button>
+          <button id="btn-settings" title="Visual + audio settings">&#9881;</button>
+          <button id="btn-help" type="button" title="Help (? or h)">?</button>
+          <button id="btn-remote" type="button" title="Open phone remote (same Wi‑Fi as TV)">Remote</button>
+          <google-cast-launcher id="cast-launcher" title="Cast visuals + audio to Chromecast / Android TV"></google-cast-launcher>
+          <button id="btn-cast" title="Cast to Chromecast or TV" class="cast-unavailable">Cast</button>
           <span id="cast-status"></span>
           <button id="btn-fullscreen" title="Toggle fullscreen">&#9974;</button>
         </div>
@@ -497,22 +514,29 @@
             <span class="help-desc">Next preset</span>
             <span class="help-key">p &nbsp;/&nbsp; ←</span>
             <span class="help-desc">Previous preset</span>
+            <span class="help-key">⇧&nbsp;→ / ⇧&nbsp;←</span>
+            <span class="help-desc">Skip +30s / −30s when a DJ set is playing (not live radio)</span>
             <span class="help-key">f</span>
             <span class="help-desc">Toggle fullscreen</span>
             <span class="help-key">s</span>
             <span class="help-desc">Toggle shuffle</span>
             <span class="help-key">r</span>
-            <span class="help-desc">Random station</span>
+            <span class="help-desc">Random DJ set or radio station</span>
             <span class="help-key">Space</span>
             <span class="help-desc">Pause / resume audio</span>
             <span class="help-key">c</span>
-            <span class="help-desc">Copy share link</span>
+            <span class="help-desc">Copy share link (scene + station in URL)</span>
             <span class="help-key">Esc</span>
             <span class="help-desc">Show controls</span>
-            <span class="help-key">?</span>
+            <span class="help-key">? &nbsp; h</span>
             <span class="help-desc">Show / hide this help</span>
           </div>
-          <div class="help-dismiss">Press <strong>?</strong> or <strong>Esc</strong> to close</div>
+          <div class="help-tips">
+            <strong>Scene</strong> picks the visual pack; <strong>Sound</strong> is DJ sets (MP3 on seek bar) or live SomaFM streams.<br />
+            <strong>Cast</strong> plays on the TV — audio may keep going if you only minimize this tab; use <strong>Remote</strong> for a simple controller or Pause / Stop there.<br />
+            Moving the mouse shows the bar again after it hides.
+          </div>
+          <div class="help-dismiss">Press <strong>?</strong>, <strong>h</strong>, or <strong>Esc</strong> to close</div>
         </div>
       </div>
     </div>

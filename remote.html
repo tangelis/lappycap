@@ -62,6 +62,19 @@
 
     .header h1 span { font-size: 24px; }
 
+    .header-titles {
+      flex: 1;
+      min-width: 0;
+      padding-right: 8px;
+    }
+    .header-lead {
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.45;
+      margin-top: 6px;
+      max-width: 42em;
+    }
+
     google-cast-launcher {
       --connected-color: var(--accent);
       --disconnected-color: var(--text-dim);
@@ -407,7 +420,10 @@
 
   <!-- Header -->
   <div class="header">
-    <h1><span>🎬</span> LappyCap Remote</h1>
+    <div class="header-titles">
+      <h1><span>🎬</span> LappyCap Remote</h1>
+      <p class="header-lead">Pick <strong>Sound</strong> (DJ set or live radio), tap <strong>Cast</strong>, then use <strong>Pause</strong> or <strong>Stop on TV</strong> when you leave.</p>
+    </div>
     <google-cast-launcher id="castLauncher"></google-cast-launcher>
     <button class="cast-btn-fallback" id="castFallback" onclick="requestCast()">Cast</button>
   </div>
@@ -426,15 +442,15 @@
   <!-- Controls wrapper -->
   <div id="controlsWrap" class="controls-disabled">
 
-    <!-- Station -->
+    <!-- Sound source -->
     <div class="section">
-      <div class="section-label">🎵 Station</div>
+      <div class="section-label">🎵 Sound</div>
       <div class="select-wrap">
         <select id="stationSelect" onchange="onStationChange()">
           <!-- populated by JS -->
         </select>
       </div>
-      <button class="btn btn-full" onclick="randomStation()">🎲 Random Station</button>
+      <button class="btn btn-full" onclick="randomStation()">🎲 Random DJ set or radio</button>
     </div>
 
     <!-- Scene -->

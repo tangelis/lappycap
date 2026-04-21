@@ -119,7 +119,8 @@ class LappyCap {
 
       // Show a prompt
       const nameEl = document.getElementById('preset-name')!;
-      nameEl.textContent = '\u266B  Click anywhere or press any key to start the vibes  \u266B';
+      nameEl.textContent =
+        '\u266B  Click, tap, or press any key to start  \u266B\nStarts REC225 (DJ set) — use Scene + Sound below after.';
       nameEl.classList.add('splash');
 
       // Wait for user interaction to start audio context + auto-play a station
@@ -185,6 +186,22 @@ class LappyCap {
       e.stopPropagation();
       const isShuffled = this.sceneManager.toggleShuffle();
       shuffleBtn.classList.toggle('active', isShuffled);
+    });
+
+    document.getElementById('btn-remote')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = new URL('remote.html', window.location.href);
+      window.open(url.href, '_blank', 'noopener,noreferrer');
+      this.showToast('Remote opened — use it to control the TV', 2500);
+    });
+
+    document.getElementById('btn-help')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleHelp();
+    });
+
+    document.getElementById('help-overlay')!.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) this.hideHelp();
     });
 
     // Settings panel toggle
@@ -257,7 +274,7 @@ class LappyCap {
       const select = e.target as HTMLSelectElement;
       const url = select.value;
       if (url) {
-        // Switching to radio — deactivate playlist
+        // Switching Sound source — deactivate playlist
         this.playingFromPlaylist = false;
         this.renderPlaylistTracks();
         await this.playAudioURL(url);
@@ -410,6 +427,8 @@ class LappyCap {
           this.showControls();
           break;
         case '?':
+        case 'h':
+        case 'H':
           this.toggleHelp();
           break;
       }
@@ -583,7 +602,7 @@ class LappyCap {
         // Show cast status with device name
         const name = deviceName || 'Chromecast';
         castStatus.textContent = `📺 ${name}`;
-        this.showToast(`🎬 Casting to ${name}`, 3000);
+        this.showToast(`🎬 Casting to ${name}\nSound is on the TV. Use Remote or Pause / Stop there if you leave this tab.`, 4500);
         // Send current state to receiver — delay to let receiver finish booting
         if (this.currentAudioUrl) {
           const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
@@ -937,6 +956,7 @@ class LappyCap {
 
   private populateRadioSelector(): void {
     const select = document.getElementById('radio-select') as HTMLSelectElement;
+    select.innerHTML = '';
 
     if (djSets.length > 0) {
       const setsGroup = document.createElement('optgroup');
