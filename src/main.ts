@@ -23,6 +23,8 @@ class LappyCap {
   private playingFromPlaylist = false;
   private dragSrcIndex: number = -1;
   private currentTrackTitle?: string;
+  /** True when we paused `<audio>` only because the tab went to the background (not user pause). */
+  private autoPausedForBackground = false;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -35,8 +37,35 @@ class LappyCap {
     this.playlist = new Playlist();
     this.setupCast();
     this.setupPlaylist();
+    this.setupBackgroundAudioPause();
 
     this.init();
+  }
+
+  /**
+   * Pause local `<audio>` when the tab is hidden so background sessions (especially on
+   * Android) do not keep streaming with no UI. Chromecast audio runs on the receiver;
+   * pausing the muted local element only saves phone battery and stops the analyser.
+   */
+  private setupBackgroundAudioPause(): void {
+    const sync = (): void => {
+      const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+      if (document.visibilityState === 'hidden') {
+        if (!audioEl.paused) {
+          audioEl.pause();
+          this.autoPausedForBackground = !this.isPaused;
+        }
+        return;
+      }
+      if (this.autoPausedForBackground && !this.isPaused) {
+        this.autoPausedForBackground = false;
+        audioEl.play().catch((e) => console.warn('[LappyCap] Background resume failed:', e));
+      } else {
+        this.autoPausedForBackground = false;
+      }
+    };
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('pagehide', sync);
   }
 
   private async init(): Promise<void> {

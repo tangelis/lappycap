@@ -42,6 +42,7 @@ interface CastReceiverContext {
   stop(): void;
   setInactivityTimeout(seconds: number): void;
   getPlayerManager(): PlayerManager;
+  getSenders(): { senderId?: string }[];
   addEventListener(type: string, handler: (event: unknown) => void): void;
   addCustomMessageListener(namespace: string, handler: (event: CustomMessageEvent) => void): void;
   sendCustomMessage(namespace: string, senderId: string | undefined, message: unknown): void;
@@ -100,6 +101,12 @@ class LappyCapReceiver {
   private wakeLockRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private debugMode = false;
   private debugTimer: ReturnType<typeof setInterval> | null = null;
+  /** Cast input selected on TV (false when user switches HDMI away from Cast). */
+  private castInputVisible = true;
+  /** HDMI-CEC standby (TV off or deep sleep). */
+  private castStandby = false;
+  /** All Cast senders disconnected — pause until a new `load` or sender reconnects. */
+  private suspendedByNoSenders = false;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -111,15 +118,52 @@ class LappyCapReceiver {
     this.initCast();
     this.acquireWakeLock();
 
-    // DOM visibilitychange is unreliable in Cast receiver context — we use
-    // Cast SDK STANDBY_CHANGED + VISIBILITY_CHANGED events in onCastReady() instead.
-    // Keep this as a belt-and-suspenders fallback for non-Cast (standalone) mode.
+    // When the Cast SDK never loads (browser testing), `document.hidden` is the only
+    // reliable signal — pause audio + visuals so background tabs do not keep streaming.
     document.addEventListener('visibilitychange', () => {
+      if (!this.castContext) {
+        this.updatePlaybackForEnvironment();
+      }
       if (document.visibilityState === 'visible') {
         console.log('[Receiver] DOM visibility restored — re-acquiring wake lock');
         this.acquireWakeLock();
       }
     });
+  }
+
+  /** True when the TV / tab context should not keep audio or the render loop running. */
+  private isPlaybackSuspended(): boolean {
+    if (this.castContext) {
+      return this.suspendedByNoSenders || !this.castInputVisible || this.castStandby;
+    }
+    return document.hidden;
+  }
+
+  /**
+   * Pause or resume local audio + Butterchurn from Cast system signals so Android TV
+   * does not keep playing after the user leaves the Cast input, puts the TV in standby,
+   * or disconnects all controllers. Respects `intentionallyPaused` (remote pause).
+   */
+  private updatePlaybackForEnvironment(): void {
+    if (!this.started) return;
+
+    if (this.isPlaybackSuspended()) {
+      if (!this.audioEl.paused) {
+        this.audioEl.pause();
+      }
+      this.visualizer.stop();
+      const why = this.castContext
+        ? `visible=${this.castInputVisible} standby=${this.castStandby} noSenders=${this.suspendedByNoSenders}`
+        : `document.hidden=${document.hidden}`;
+      console.log(`[Receiver] Playback suspended (${why})`);
+      return;
+    }
+
+    if (!this.intentionallyPaused && this.currentAudioUrl) {
+      console.log('[Receiver] Playback resumed after environment unsuspend');
+      this.visualizer.start();
+      this.audioEl.play().catch(e => console.error('[Receiver] Resume after unsuspend failed:', e));
+    }
   }
 
   /**
@@ -278,8 +322,8 @@ class LappyCapReceiver {
     let stallCount = 0;
 
     this.audioWatchdog = setInterval(() => {
-      // Don't fight an intentional pause
-      if (this.intentionallyPaused) return;
+      // Don't fight an intentional pause or environment-driven suspension
+      if (this.intentionallyPaused || this.isPlaybackSuspended()) return;
 
       if (this.audioEl.paused || this.audioEl.ended) {
         console.warn('[Receiver] Watchdog: audio not playing, restarting...');
@@ -350,43 +394,49 @@ class LappyCapReceiver {
     this.castContext.addEventListener(
       cast.framework.system.EventType.SENDER_DISCONNECTED,
       () => {
-        console.log('[Receiver] Sender disconnected — continuing playback (disableIdleTimeout is on)');
-      }
-    );
-
-    // STANDBY_CHANGED: fired when HDMI-CEC puts the TV into/out of standby.
-    // This is the real root cause of the ~20-minute timeout on Android TV —
-    // the TV's display sleep timer fires CEC standby, which can kill the Cast session.
-    // We use this to log the event and attempt to re-acquire the wake lock on wakeup.
-    this.castContext.addEventListener(
-      cast.framework.system.EventType.STANDBY_CHANGED,
-      (event: any) => {
-        const isStandby = event.isStandby;
-        console.log(`[Receiver] HDMI-CEC standby changed: isStandby=${isStandby}`);
-        if (!isStandby) {
-          // TV woke up — re-acquire wake lock immediately
-          console.log('[Receiver] TV woke from standby — re-acquiring wake lock');
-          this.acquireWakeLock();
-          // Restart audio if it stopped during standby
-          if (!this.intentionallyPaused && this.audioEl.paused && this.currentAudioUrl) {
-            console.log('[Receiver] Resuming audio after standby');
-            this.audioEl.play().catch(e => console.error('[Receiver] Post-standby resume failed:', e));
-          }
+        const remaining = this.castContext!.getSenders().length;
+        console.log(`[Receiver] Sender disconnected — ${remaining} sender(s) remain`);
+        if (remaining === 0) {
+          this.suspendedByNoSenders = true;
+          this.updatePlaybackForEnvironment();
         }
       }
     );
 
+    this.castContext.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, () => {
+      this.suspendedByNoSenders = false;
+      this.updatePlaybackForEnvironment();
+    });
+
+    // STANDBY_CHANGED: fired when HDMI-CEC puts the TV into/out of standby.
+    // This is the real root cause of the ~20-minute timeout on Android TV —
+    // the TV's display sleep timer fires CEC standby, which can kill the Cast session.
+    this.castContext.addEventListener(
+      cast.framework.system.EventType.STANDBY_CHANGED,
+      (event: any) => {
+        const isStandby = event.isStandby;
+        this.castStandby = isStandby;
+        console.log(`[Receiver] HDMI-CEC standby changed: isStandby=${isStandby}`);
+        if (!isStandby) {
+          console.log('[Receiver] TV woke from standby — re-acquiring wake lock');
+          this.acquireWakeLock();
+        }
+        this.updatePlaybackForEnvironment();
+      }
+    );
+
     // VISIBILITY_CHANGED: fired when the TV switches HDMI inputs (LappyCap loses/gains display).
-    // Use this to re-acquire wake lock when we become the active input again.
     this.castContext.addEventListener(
       cast.framework.system.EventType.VISIBILITY_CHANGED,
       (event: any) => {
         const isVisible = event.isVisible;
+        this.castInputVisible = isVisible;
         console.log(`[Receiver] Cast visibility changed: isVisible=${isVisible}`);
         if (isVisible) {
           console.log('[Receiver] Cast became visible — re-acquiring wake lock');
           this.acquireWakeLock();
         }
+        this.updatePlaybackForEnvironment();
       }
     );
 
@@ -408,6 +458,7 @@ class LappyCapReceiver {
   private handleMessage(senderId: string, msg: ReceiverMessage): void {
     switch (msg.type) {
       case 'load': {
+        this.suspendedByNoSenders = false;
         this.intentionallyPaused = false; // new load always resumes
         if (msg.sceneName) {
           const scene = scenes.find(s => s.name === msg.sceneName);
