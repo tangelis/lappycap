@@ -5,6 +5,7 @@ import { loadPresetsForScene } from './preset-loader';
 import { scenes } from './scenes';
 import { radioStations, djSets, defaultPlaybackStation, findStationByUrl, findStationByName } from './radio-stations';
 import { CastSender } from './cast-sender';
+import type { CastStatusMessage } from './cast-sender';
 import { Playlist, formatDuration } from './playlist';
 import type { PlaylistTrack } from './playlist';
 
@@ -17,7 +18,6 @@ class LappyCap {
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private audioSourceCreated = false;
   private currentAudioUrl: string = '';
-  private preCastVolume: number = 1;
   private isPaused = false;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private playingFromPlaylist = false;
@@ -184,8 +184,7 @@ class LappyCap {
     shuffleBtn.classList.add('active');
     shuffleBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isShuffled = this.sceneManager.toggleShuffle();
-      shuffleBtn.classList.toggle('active', isShuffled);
+      this.togglePresetShuffle();
     });
 
     document.getElementById('btn-remote')!.addEventListener('click', (e) => {
@@ -235,6 +234,7 @@ class LappyCap {
       const val = parseInt(cycleSlider.value);
       cycleLabel.textContent = `${val}s`;
       this.sceneManager.setCycleDuration(val);
+      this.syncCastSettings({ cycleDuration: val });
     });
 
     // Blend speed
@@ -244,6 +244,7 @@ class LappyCap {
       const val = parseInt(blendSlider.value);
       blendLabel.textContent = `${val}s`;
       this.sceneManager.setBlendDuration(val);
+      this.syncCastSettings({ blendDuration: val });
     });
 
     // Visual speed (FPS + audio smoothing)
@@ -265,7 +266,12 @@ class LappyCap {
     volumeSlider.addEventListener('input', () => {
       const val = parseInt(volumeSlider.value);
       volLabel.textContent = `${val}%`;
-      this.audio.setVolume(val / 100);
+      if (this.castSender.isConnected) {
+        (document.getElementById('audio-element') as HTMLAudioElement).volume = 0;
+      } else {
+        this.audio.setVolume(val / 100);
+      }
+      this.syncCastSettings({ volume: val / 100 });
     });
 
     // Radio station selector
@@ -403,7 +409,7 @@ class LappyCap {
           else document.documentElement.requestFullscreen();
           break;
         case 's':
-          this.sceneManager.toggleShuffle();
+          this.togglePresetShuffle();
           break;
         case 'r': {
           this.playingFromPlaylist = false;
@@ -467,10 +473,9 @@ class LappyCap {
     const pill = document.getElementById('now-playing')!;
     const nameEl = document.getElementById('np-station-name')!;
     const indicator = pill.querySelector('.np-indicator') as HTMLElement;
-    const select = document.getElementById('radio-select') as HTMLSelectElement;
 
     // Find the station name from the currently selected option
-    const station = findStationByUrl(select.value);
+    const station = this.currentAudioUrl ? findStationByUrl(this.currentAudioUrl) : undefined;
     if (station) {
       nameEl.textContent = station.name;
       indicator.textContent = this.isPaused ? '⏸' : '▶';
@@ -489,24 +494,125 @@ class LappyCap {
     }
   }
 
+  private togglePresetShuffle(): void {
+    const shuffleBtn = document.getElementById('btn-shuffle')!;
+    const isShuffled = this.sceneManager.toggleShuffle();
+    shuffleBtn.classList.toggle('active', isShuffled);
+  }
+
+  private getConfiguredVolume(): number {
+    const volumeSlider = document.getElementById('volume') as HTMLInputElement | null;
+    if (!volumeSlider) return 1;
+    const volume = parseInt(volumeSlider.value || '100', 10);
+    if (!Number.isFinite(volume)) return 1;
+    return Math.max(0, Math.min(1, volume / 100));
+  }
+
+  private syncCastSettings(settings: { cycleDuration?: number; blendDuration?: number; volume?: number }): void {
+    if (!this.castSender.isConnected) return;
+    this.castSender.send({
+      type: 'settings',
+      ...settings,
+    });
+  }
+
+  private setSessionChip(label: string, tone: 'active' | 'available' | 'inactive'): void {
+    const chip = document.getElementById('session-chip')!;
+    const labelEl = document.getElementById('session-chip-label')!;
+    chip.classList.remove('active', 'available', 'inactive');
+    chip.classList.add(tone);
+    labelEl.textContent = label;
+  }
+
+  private handleCastStatus(message: CastStatusMessage): void {
+    const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
+
+    if (message.stopped) {
+      audioEl.pause();
+      audioEl.removeAttribute('src');
+      audioEl.load();
+      this.currentAudioUrl = '';
+      this.currentTrackTitle = undefined;
+      this.isPaused = true;
+      const pauseBtn = document.getElementById('btn-pause')!;
+      pauseBtn.innerHTML = '&#9654;';
+      pauseBtn.classList.add('active');
+      this.updateNowPlaying();
+      return;
+    }
+
+    if (message.stationName) {
+      this.currentTrackTitle = message.stationName;
+    }
+
+    if (typeof message.playing === 'boolean') {
+      this.isPaused = !message.playing;
+      const pauseBtn = document.getElementById('btn-pause')!;
+      pauseBtn.innerHTML = this.isPaused ? '&#9654;' : '&#9646;&#9646;';
+      pauseBtn.classList.toggle('active', this.isPaused);
+    }
+
+    this.updateNowPlaying();
+  }
+
   /** Toggle audio pause/resume and show indicator */
   private togglePause(): void {
     const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
     const pauseBtn = document.getElementById('btn-pause')!;
+    if (this.castSender.isConnected) {
+      if (!this.currentAudioUrl) {
+        const selectedUrl = (document.getElementById('radio-select') as HTMLSelectElement).value;
+        if (selectedUrl) {
+          this.currentAudioUrl = selectedUrl;
+          this.currentTrackTitle = this.getCurrentCastTitle();
+          this.isPaused = false;
+          pauseBtn.innerHTML = '&#9646;&#9646;';
+          pauseBtn.classList.remove('active');
+          this.updateNowPlaying();
+          this.castSender.send({
+            type: 'load',
+            audioUrl: selectedUrl,
+            sceneName: this.sceneManager.getScene().name,
+            stationName: this.getCurrentCastTitle(),
+            volume: this.getConfiguredVolume(),
+          });
+        } else {
+          this.showToast('Choose a sound to start', 1800);
+        }
+        return;
+      }
+
+      if (this.isPaused) {
+        audioEl.play().catch(err => console.error('Resume failed:', err));
+        this.isPaused = false;
+        pauseBtn.innerHTML = '&#9646;&#9646;';
+        pauseBtn.classList.remove('active');
+        this.showToast('▶', 1500);
+        this.castSender.send({ type: 'resume' });
+      } else {
+        audioEl.pause();
+        this.isPaused = true;
+        pauseBtn.innerHTML = '&#9654;';
+        pauseBtn.classList.add('active');
+        this.showToast('⏸', 1500);
+        this.castSender.send({ type: 'pause' });
+      }
+      this.updateNowPlaying();
+      return;
+    }
+
     if (audioEl.paused) {
       audioEl.play().catch(err => console.error('Resume failed:', err));
       this.isPaused = false;
       pauseBtn.innerHTML = '&#9646;&#9646;';
       pauseBtn.classList.remove('active');
       this.showToast('▶', 1500);
-      if (this.castSender.isConnected) this.castSender.send({ type: 'resume' });
     } else {
       audioEl.pause();
       this.isPaused = true;
       pauseBtn.innerHTML = '&#9654;';
       pauseBtn.classList.add('active');
       this.showToast('⏸', 1500);
-      if (this.castSender.isConnected) this.castSender.send({ type: 'pause' });
     }
     this.updateNowPlaying();
   }
@@ -547,6 +653,10 @@ class LappyCap {
     return station?.name;
   }
 
+  private getCurrentCastTitle(): string | undefined {
+    return this.currentTrackTitle || this.getCurrentStationName() || (this.currentAudioUrl ? 'Custom stream' : undefined);
+  }
+
   private async playAudioURL(url: string, trackTitle?: string): Promise<void> {
     this.currentAudioUrl = url;
     this.isPaused = false;
@@ -574,7 +684,8 @@ class LappyCap {
           type: 'load',
           audioUrl: url,
           sceneName: this.sceneManager.getScene().name,
-          stationName: trackTitle || this.getCurrentStationName(),
+          stationName: trackTitle || this.getCurrentCastTitle(),
+          volume: this.getConfiguredVolume(),
         });
       }
     } catch (err) {
@@ -587,21 +698,25 @@ class LappyCap {
   private setupCast(): void {
     const castBtn = document.getElementById('btn-cast')!;
     const castLauncher = document.getElementById('cast-launcher')!;
+    this.setSessionChip('Looking for Cast devices', 'inactive');
+    this.castSender.onMessage = (message) => this.handleCastStatus(message);
 
     this.castSender.onAvailabilityChanged = (available) => {
       castBtn.classList.toggle('cast-unavailable', !available);
       // Hide the fallback button if the native launcher is rendering
       const launcherVisible = castLauncher.offsetWidth > 0;
       castBtn.style.display = launcherVisible ? 'none' : '';
+      if (!this.castSender.isConnected) {
+        this.setSessionChip(available ? 'Cast ready' : 'Looking for Cast devices', available ? 'available' : 'inactive');
+      }
     };
 
     this.castSender.onSessionChanged = (connected, deviceName) => {
       castBtn.classList.toggle('active', connected);
-      const castStatus = document.getElementById('cast-status')!;
       if (connected) {
         // Show cast status with device name
         const name = deviceName || 'Chromecast';
-        castStatus.textContent = `📺 ${name}`;
+        this.setSessionChip(`Casting to ${name}`, 'active');
         this.showToast(`🎬 Casting to ${name}\nSound is on the TV. Use Remote or Pause / Stop there if you leave this tab.`, 4500);
         // Send current state to receiver — delay to let receiver finish booting
         if (this.currentAudioUrl) {
@@ -610,24 +725,30 @@ class LappyCap {
             type: 'load',
             audioUrl: this.currentAudioUrl,
             sceneName: this.sceneManager.getScene().name,
-            stationName: this.getCurrentStationName(),
+            stationName: this.getCurrentCastTitle(),
+            volume: this.getConfiguredVolume(),
             seekTime: isFinite(audioEl.duration) ? audioEl.currentTime : undefined,
           });
-          // Send immediately and again after 2s in case receiver wasn't ready
+          const sendSettings = () => this.syncCastSettings({
+            cycleDuration: parseInt((document.getElementById('cycle-speed') as HTMLInputElement).value, 10),
+            blendDuration: parseInt((document.getElementById('blend-speed') as HTMLInputElement).value, 10),
+            volume: this.getConfiguredVolume(),
+          });
+          // Send immediately, then refresh settings once the receiver is fully ready.
           sendLoad();
-          setTimeout(sendLoad, 2000);
+          sendSettings();
+          setTimeout(sendSettings, 2000);
         }
         // Silence local audio — Chromecast plays its own stream
         // Use volume=0 instead of muted to keep the stream alive for the analyser
         const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
-        this.preCastVolume = audioEl.volume;
         audioEl.volume = 0;
       } else {
-        castStatus.textContent = '';
+        this.setSessionChip(this.castSender.isAvailable ? 'Cast ready' : 'Looking for Cast devices', this.castSender.isAvailable ? 'available' : 'inactive');
         this.showToast('📺 Cast disconnected', 2000);
         // Restore local volume
         const audioEl = document.getElementById('audio-element') as HTMLAudioElement;
-        audioEl.volume = this.preCastVolume ?? 1;
+        audioEl.volume = this.getConfiguredVolume();
       }
     };
 

@@ -9,7 +9,7 @@ class CastOptionsProvider : OptionsProvider {
 
     override fun getCastOptions(context: Context): CastOptions {
         return CastOptions.Builder()
-            .setReceiverApplicationId("8315CD49")
+            .setReceiverApplicationId("97CE3127")
             .build()
     }
 

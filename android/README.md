@@ -33,7 +33,7 @@ cd android/
 
 ## Cast App ID
 
-The Cast App ID `8315CD49` is already registered in the Google Cast Developer Console. No additional setup needed — just make sure your Chromecast is on the same Wi-Fi as your phone and the Cast button will discover it.
+The Cast App ID `97CE3127` is already registered in the Google Cast Developer Console. No additional setup needed — just make sure your Chromecast is on the same Wi-Fi as your phone and the Cast button will discover it.
 
 ## Message Protocol
 

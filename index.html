@@ -19,54 +19,115 @@
       }
 
       #controls {
-        position: absolute; bottom: 0; left: 0; right: 0;
-        background: linear-gradient(transparent, rgba(0,0,0,0.85));
-        padding: 20px 24px 16px;
-        display: flex; flex-direction: column; gap: 10px;
-        transition: opacity 0.5s ease;
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+        background: rgba(8,10,16,0.78);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 18px;
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        box-shadow: 0 18px 48px rgba(0,0,0,0.32);
+        transition: opacity 0.5s ease, transform 0.5s ease;
         z-index: 10;
       }
-      #controls.hidden { opacity: 0; pointer-events: none; }
+      #controls.hidden {
+        opacity: 0;
+        transform: translateY(12px);
+        pointer-events: none;
+      }
 
       .controls-row {
-        display: flex; align-items: center; gap: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      #primary-controls { justify-content: space-between; }
+      #secondary-actions {
+        justify-content: space-between;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+
+      .cluster {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         flex-wrap: wrap;
       }
 
       button {
-        background: rgba(255,255,255,0.12);
-        border: 1px solid rgba(255,255,255,0.2);
-        color: #fff; padding: 6px 14px;
-        border-radius: 6px; cursor: pointer;
-        font-size: 14px; font-family: system-ui;
-        transition: background 0.2s;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.16);
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 13px;
+        font-family: system-ui;
+        font-weight: 500;
+        transition: background 0.2s, border-color 0.2s, transform 0.2s;
       }
-      button:hover { background: rgba(255,255,255,0.25); }
-      button.active { background: rgba(100,200,255,0.3); border-color: rgba(100,200,255,0.5); }
-      button.cast-unavailable { opacity: 0.3; cursor: default; }
-      button.cast-unavailable:hover { background: rgba(255,255,255,0.12); }
+      button:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.24); }
+      button.active { background: rgba(100,200,255,0.22); border-color: rgba(100,200,255,0.45); }
+      button.cast-unavailable { opacity: 0.45; cursor: default; }
+      button.cast-unavailable:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.16); }
 
       google-cast-launcher {
         --connected-color: rgb(100,200,255);
         --disconnected-color: #fff;
-        width: 28px; height: 28px;
+        width: 34px;
+        height: 34px;
         cursor: pointer;
-        opacity: 0.8;
+        opacity: 0.85;
         transition: opacity 0.2s;
       }
       google-cast-launcher:hover { opacity: 1; }
 
       select, input[type="text"] {
-        background: rgba(255,255,255,0.1);
-        border: 1px solid rgba(255,255,255,0.2);
-        color: #fff; padding: 6px 10px;
-        border-radius: 6px; font-size: 14px;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.14);
+        color: #fff;
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-size: 14px;
         font-family: system-ui;
       }
       select option { background: #222; color: #fff; }
 
       input[type="text"] { flex: 1; min-width: 200px; }
       input[type="text"]::placeholder { color: rgba(255,255,255,0.4); }
+
+      .field-chip {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.09);
+        border-radius: 12px;
+        min-height: 48px;
+      }
+      .field-chip select {
+        min-width: 180px;
+        border: none;
+        background: transparent;
+        padding: 0;
+      }
+      .field-chip-wide select { min-width: 220px; }
+      .control-label {
+        color: rgba(255,255,255,0.58);
+        font-size: 11px;
+        font-family: system-ui;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
 
       input[type="range"] {
         -webkit-appearance: none; appearance: none;
@@ -144,22 +205,63 @@
         50% { color: rgba(180,220,255,0.8); }
       }
 
+      #status-strip {
+        position: absolute;
+        top: 48px;
+        left: 20px;
+        right: 20px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        z-index: 11;
+        pointer-events: none;
+      }
+      .status-chip,
+      #now-playing {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.14);
+        color: rgba(255,255,255,0.78);
+        font-family: system-ui;
+        font-size: 13px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        transition: opacity 0.4s ease, border-color 0.3s ease, background 0.3s ease;
+      }
+      #session-chip { opacity: 1; }
+      #session-chip.active {
+        background: rgba(14,30,42,0.72);
+        border-color: rgba(100,200,255,0.35);
+      }
+      #session-chip.available {
+        border-color: rgba(255,255,255,0.18);
+      }
+      #session-chip.inactive {
+        opacity: 0.82;
+      }
+      .session-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(180,180,180,0.8);
+        box-shadow: 0 0 0 4px rgba(255,255,255,0.04);
+        flex: 0 0 auto;
+      }
+      #session-chip.available .session-dot { background: rgba(160,200,255,0.95); }
+      #session-chip.active .session-dot { background: rgba(100,200,255,1); }
+      #session-chip.inactive .session-dot { background: rgba(140,140,140,0.8); }
+
       /* Now Playing pill */
       #now-playing {
-        position: absolute; top: 16px; right: 20px;
-        display: flex; align-items: center; gap: 8px;
-        background: rgba(0,0,0,0.55);
-        border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 20px;
-        padding: 6px 14px 6px 10px;
-        font-family: system-ui; font-size: 13px;
-        color: rgba(255,255,255,0.75);
-        z-index: 10;
-        pointer-events: none;
+        justify-content: flex-end;
+        max-width: min(48vw, 420px);
         opacity: 0;
-        transition: opacity 0.6s ease;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
       }
       #now-playing.visible { opacity: 1; }
       #now-playing .np-indicator {
@@ -199,17 +301,6 @@
         max-width: min(92vw, 20rem);
       }
       #toast.visible { opacity: 1; }
-
-      /* Cast status line near cast button */
-      #cast-status {
-        font-size: 11px;
-        color: rgba(100,200,255,0.8);
-        font-family: system-ui;
-        max-width: 120px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
 
       /* ── Playlist Panel ── */
       #playlist-panel {
@@ -401,13 +492,32 @@
       }
       .help-tips strong { color: rgba(255,255,255,0.9); }
       @media (max-width: 600px) {
-        #controls { padding: 8px; gap: 6px; }
-        .controls-row { gap: 6px; }
-        select { min-width: 0 !important; max-width: 120px; font-size: 12px; }
-        button { padding: 4px 8px; font-size: 12px; }
+        #status-strip {
+          top: 56px;
+          left: 12px;
+          right: 12px;
+          flex-direction: column;
+          align-items: stretch;
+        }
+        #now-playing { max-width: 100%; justify-content: flex-start; }
+        #controls {
+          left: 10px;
+          right: 10px;
+          bottom: 10px;
+          padding: 10px;
+          gap: 8px;
+        }
+        .controls-row { gap: 8px; }
+        #primary-controls,
+        #secondary-actions { flex-direction: column; align-items: stretch; }
+        .cluster, .field-chip { width: 100%; }
+        .field-chip { justify-content: space-between; }
+        select { min-width: 0 !important; max-width: none; width: 100%; font-size: 12px; }
+        button { padding: 6px 10px; font-size: 12px; }
         .label { font-size: 10px; }
         #seek-bar .seek-btns { display: none; }
         #playlist-panel { max-height: 40vh; }
+        #control-hint { display: none; }
       }
     </style>
   </head>
@@ -417,32 +527,49 @@
       <div id="loading">Loading LappyCap...</div>
       <div id="toast"></div>
       <div id="preset-name"></div>
-      <div id="now-playing">
-        <span class="np-indicator">▶</span>
-        <span class="np-station" id="np-station-name"></span>
+      <div id="status-strip">
+        <div id="session-chip" class="status-chip">
+          <span class="session-dot"></span>
+          <span id="session-chip-label">Looking for Cast devices</span>
+        </div>
+        <div id="now-playing">
+          <span class="np-indicator">▶</span>
+          <span class="np-station" id="np-station-name"></span>
+        </div>
       </div>
       <div id="controls">
-        <div class="controls-row">
-          <button id="btn-prev" title="Previous preset">&#9664;</button>
-          <button id="btn-pause" title="Pause / Resume (Space)">&#9646;&#9646;</button>
-          <button id="btn-next" title="Next preset">&#9654;</button>
-          <button id="btn-shuffle" title="Toggle shuffle">Shuffle</button>
-          <span class="label" id="preset-counter">1 / 1</span>
-          <div style="flex:1"></div>
-          <span class="label">Scene</span>
-          <select id="scene-select" title="Visual style (presets cycle inside this scene)"></select>
-          <span class="label">Sound</span>
-          <select id="radio-select" style="min-width:160px" title="DJ sets (seekable) or live SomaFM radio"></select>
-          <button id="btn-shuffle-station" title="Random DJ set or radio station">&#127922;</button>
-          <button id="btn-mic" title="Use microphone">Mic</button>
-          <button id="btn-playlist" title="Playlist">📋</button>
-          <button id="btn-settings" title="Visual + audio settings">&#9881;</button>
-          <button id="btn-help" type="button" title="Help (? or h)">?</button>
-          <button id="btn-remote" type="button" title="Open phone remote (same Wi‑Fi as TV)">Remote</button>
-          <google-cast-launcher id="cast-launcher" title="Cast visuals + audio to Chromecast / Android TV"></google-cast-launcher>
-          <button id="btn-cast" title="Cast to Chromecast or TV" class="cast-unavailable">Cast</button>
-          <span id="cast-status"></span>
-          <button id="btn-fullscreen" title="Toggle fullscreen">&#9974;</button>
+        <div id="primary-controls" class="controls-row">
+          <div class="cluster transport-cluster">
+            <button id="btn-prev" title="Previous preset" aria-label="Previous preset">&#9664;</button>
+            <button id="btn-pause" title="Pause / Resume (Space)" aria-label="Pause or resume">&#9646;&#9646;</button>
+            <button id="btn-next" title="Next preset" aria-label="Next preset">&#9654;</button>
+            <button id="btn-shuffle" title="Toggle shuffle">Shuffle</button>
+            <span class="label" id="preset-counter">1 / 1</span>
+          </div>
+          <div class="field-chip">
+            <span class="control-label">Scene</span>
+            <select id="scene-select" title="Visual style (presets cycle inside this scene)" aria-label="Scene"></select>
+          </div>
+          <div class="field-chip field-chip-wide">
+            <span class="control-label">Sound</span>
+            <select id="radio-select" title="DJ sets (seekable) or live SomaFM radio" aria-label="Sound source"></select>
+            <button id="btn-shuffle-station" title="Random DJ set or radio station">Random Sound</button>
+          </div>
+          <div class="cluster cast-cluster">
+            <button id="btn-mic" title="Use microphone">Mic</button>
+            <google-cast-launcher id="cast-launcher" title="Cast visuals + audio to Chromecast / Android TV"></google-cast-launcher>
+            <button id="btn-cast" title="Cast to Chromecast or TV" class="cast-unavailable">Cast</button>
+          </div>
+        </div>
+        <div id="secondary-actions" class="controls-row">
+          <div class="cluster secondary-cluster">
+            <button id="btn-playlist" title="Playlist" style="display:none" aria-hidden="true">Playlist</button>
+            <button id="btn-settings" title="Visual + audio settings">Settings</button>
+            <button id="btn-remote" type="button" title="Open phone remote (same Wi‑Fi as TV)">Remote</button>
+            <button id="btn-help" type="button" title="Help (? or h)">Help</button>
+            <button id="btn-fullscreen" title="Toggle fullscreen">Fullscreen</button>
+          </div>
+          <span class="label" id="control-hint">Move the pointer or press Esc to reopen controls.</span>
         </div>
         <div id="playlist-panel">
           <div class="pl-header">

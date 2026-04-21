@@ -121,7 +121,6 @@ class LappyCapReceiver {
   private started = false;
   private currentAudioUrl: string = '';
   private audioWatchdog: ReturnType<typeof setInterval> | null = null;
-  private stationNameTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionallyPaused = false;
   private wakeLock: WakeLockSentinel | null = null;
   private wakeLockRetryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -170,6 +169,8 @@ class LappyCapReceiver {
       this.audioEl.addEventListener('playing', bumpCastMedia);
       this.audioEl.addEventListener('pause', bumpCastMedia);
     }
+    this.installMediaSessionActionHandlers();
+    this.updateReceiverOverlay();
   }
 
   /** True when the TV / tab context should not keep audio or the render loop running. */
@@ -258,6 +259,7 @@ class LappyCapReceiver {
           artist: sceneName,
           album: 'LappyCap',
         });
+        navigator.mediaSession.playbackState = this.audioEl.paused ? 'paused' : 'playing';
       }
     } catch {
       /* MediaMetadata unsupported on some embeds */
@@ -268,10 +270,187 @@ class LappyCapReceiver {
     try {
       if ('mediaSession' in navigator && navigator.mediaSession) {
         navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = 'none';
       }
     } catch {
       /* ignore */
     }
+  }
+
+  private setReceiverOverlay(
+    state: 'waiting' | 'playing' | 'paused' | 'suspended' | 'error',
+    status: string,
+    title: string,
+    meta: string,
+  ): void {
+    const overlay = document.getElementById('receiver-overlay')!;
+    const statusEl = document.getElementById('receiver-status')!;
+    const titleEl = document.getElementById('receiver-title')!;
+    const metaEl = document.getElementById('receiver-meta')!;
+    const tipEl = document.getElementById('receiver-tip')!;
+
+    overlay.classList.remove('waiting', 'playing', 'paused', 'suspended', 'error');
+    overlay.classList.add(state);
+    statusEl.textContent = status;
+    titleEl.textContent = title;
+    metaEl.textContent = meta;
+    tipEl.textContent = this.castContext
+      ? 'Use the LappyCap remote or your Cast controls to return here.'
+      : 'Standalone mode mirrors the TV experience; use the phone remote for Cast control.';
+  }
+
+  private updateReceiverOverlay(): void {
+    const title = (this.nowPlayingTitle && this.nowPlayingTitle.trim())
+      || (this.currentAudioUrl ? this.titleFromAudioUrl(this.currentAudioUrl) : 'Ready for visuals');
+    const sceneName = this.sceneManager.getScene().name;
+
+    if (!this.currentAudioUrl) {
+      this.setReceiverOverlay(
+        'waiting',
+        this.castContext ? 'Waiting for sender' : 'Standalone mode',
+        'LappyCap is ready',
+        this.castContext
+          ? 'Start playback from the web app or the phone remote to light up the TV.'
+          : 'Loading the default station for local testing.',
+      );
+      return;
+    }
+
+    if (this.suspendedByNoSenders) {
+      this.setReceiverOverlay(
+        'suspended',
+        'Waiting for controller',
+        title,
+        'Reconnect a sender or open the remote to resume the visualizer.',
+      );
+      return;
+    }
+
+    if (this.suspendedBySignalTimeout) {
+      this.setReceiverOverlay(
+        'suspended',
+        'Connection paused',
+        title,
+        'Send any command from the web app or remote to wake the session back up.',
+      );
+      return;
+    }
+
+    if (!this.castInputVisible || this.castStandby) {
+      this.setReceiverOverlay(
+        'suspended',
+        'Visualizer paused',
+        title,
+        !this.castInputVisible
+          ? 'Return to the Cast input to bring the visuals back on screen.'
+          : 'Wake the TV to resume playback and visuals.',
+      );
+      return;
+    }
+
+    if (this.intentionallyPaused || this.audioEl.paused) {
+      this.setReceiverOverlay(
+        'paused',
+        'Paused',
+        title,
+        `Scene: ${sceneName}. Use play on your phone or TV controls to resume.`,
+      );
+      return;
+    }
+
+    this.setReceiverOverlay(
+      'playing',
+      'Now playing',
+      title,
+      `Scene: ${sceneName}. Control playback from the phone remote or Cast controls.`,
+    );
+  }
+
+  private buildStatusMessage(): {
+    type: 'status';
+    playing: boolean;
+    stopped: boolean;
+    sceneName: string;
+    scene: string;
+    stationName: string;
+  } {
+    const sceneName = this.sceneManager.getScene().name;
+    const stopped = !this.currentAudioUrl;
+    return {
+      type: 'status',
+      playing: !stopped && !this.isPlaybackSuspended() && !this.audioEl.paused && !this.intentionallyPaused,
+      stopped,
+      sceneName,
+      scene: sceneName,
+      stationName: stopped ? '' : (this.nowPlayingTitle || this.titleFromAudioUrl(this.currentAudioUrl)),
+    };
+  }
+
+  private broadcastStatus(targetSenderId?: string): void {
+    if (!this.castContext) return;
+    const payload = this.buildStatusMessage();
+    const recipients = targetSenderId
+      ? [targetSenderId]
+      : this.castContext.getSenders()
+          .map((sender) => sender.senderId)
+          .filter((senderId): senderId is string => !!senderId);
+    for (const senderId of recipients) {
+      this.castContext.sendCustomMessage(NAMESPACE, senderId, payload);
+    }
+  }
+
+  private installMediaSessionActionHandlers(): void {
+    try {
+      if (!('mediaSession' in navigator) || !navigator.mediaSession) return;
+      navigator.mediaSession.setActionHandler('play', () => {
+        this.markControlSignal('media-session-play');
+        this.resumePlayback('media session');
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        this.markControlSignal('media-session-pause');
+        this.pausePlayback('media session');
+      });
+      navigator.mediaSession.setActionHandler('stop', () => {
+        this.markControlSignal('media-session-stop');
+        this.stopPlayback('media session');
+      });
+    } catch (err) {
+      console.warn('[Receiver] Media Session action handlers unavailable:', err);
+    }
+  }
+
+  private pausePlayback(source: string): void {
+    this.intentionallyPaused = true;
+    this.audioEl.pause();
+    this.syncCastMediaSession();
+    this.updateReceiverOverlay();
+    this.broadcastStatus();
+    console.log(`[Receiver] Paused by ${source}`);
+  }
+
+  private resumePlayback(source: string): void {
+    this.intentionallyPaused = false;
+    this.updatePlaybackForEnvironment();
+    if (!this.isPlaybackSuspended()) {
+      this.audioEl.play().catch(e => console.error(`[Receiver] Resume failed via ${source}:`, e));
+    }
+    this.syncCastMediaSession();
+    this.updateReceiverOverlay();
+    this.broadcastStatus();
+    console.log(`[Receiver] Resumed by ${source}`);
+  }
+
+  private stopPlayback(source: string): void {
+    this.intentionallyPaused = true;
+    this.audioEl.pause();
+    this.visualizer.stop();
+    this.currentAudioUrl = '';
+    this.audioEl.removeAttribute('src');
+    this.audioEl.load();
+    this.clearLockScreenMetadata();
+    this.updateReceiverOverlay();
+    this.broadcastStatus();
+    console.log(`[Receiver] Stopped by ${source}`);
   }
 
   /**
@@ -287,6 +466,8 @@ class LappyCapReceiver {
         this.audioEl.pause();
       }
       this.visualizer.stop();
+      this.syncCastMediaSession();
+      this.updateReceiverOverlay();
       const why = this.castContext
         ? `visible=${this.castInputVisible} standby=${this.castStandby} noSenders=${this.suspendedByNoSenders} signalTimeout=${this.suspendedBySignalTimeout}`
         : `document.hidden=${document.hidden}`;
@@ -298,6 +479,7 @@ class LappyCapReceiver {
       console.log('[Receiver] Playback resumed after environment unsuspend');
       this.visualizer.start();
       this.audioEl.play().catch(e => console.error('[Receiver] Resume after unsuspend failed:', e));
+      this.updateReceiverOverlay();
     }
   }
 
@@ -349,6 +531,7 @@ class LappyCapReceiver {
       const nameEl = document.getElementById('preset-name')!;
       nameEl.textContent = name;
     };
+    this.updateReceiverOverlay();
   }
 
   private ensureAudio(): AnalyserNode {
@@ -427,7 +610,6 @@ class LappyCapReceiver {
       this.visualizer.start();
       this.sceneManager.start();
       this.started = true;
-      document.getElementById('status')!.classList.add('hidden');
     }
 
     try {
@@ -435,14 +617,19 @@ class LappyCapReceiver {
       console.log(`[Receiver] Audio playing (Web Audio: ${this.webAudioConnected})`);
       this.startAudioWatchdog();
       this.syncCastMediaSession();
+      this.updateReceiverOverlay();
+      this.broadcastStatus();
     } catch (err) {
       console.error('[Receiver] Audio play failed:', err);
+      this.setReceiverOverlay('error', 'Playback error', this.nowPlayingTitle || 'Stream unavailable', 'LappyCap is retrying the stream automatically.');
       setTimeout(() => {
         this.audioEl.play()
           .then(() => {
             console.log('[Receiver] Audio playing (retry succeeded)');
             this.startAudioWatchdog();
             this.syncCastMediaSession();
+            this.updateReceiverOverlay();
+            this.broadcastStatus();
           })
           .catch(e => console.error('[Receiver] Audio retry also failed:', e));
       }, 1000);
@@ -542,10 +729,11 @@ class LappyCapReceiver {
       }
     );
 
-    this.castContext.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, () => {
+    this.castContext.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, (event: any) => {
       this.markControlSignal('sender-connected');
       this.suspendedByNoSenders = false;
       this.updatePlaybackForEnvironment();
+      this.broadcastStatus(event?.senderId);
     });
 
     // STANDBY_CHANGED: fired when HDMI-CEC puts the TV into/out of standby.
@@ -592,9 +780,7 @@ class LappyCapReceiver {
     this.markControlSignal('cast-ready');
     this.startControlWatchdog();
 
-    // Auto-start with default stream immediately. When the sender's 'load'
-    // message arrives (usually within 1-2s), it overrides with the current audio.
-    this.startStandalone();
+    this.updateReceiverOverlay();
   }
 
   private handleMessage(senderId: string, msg: ReceiverMessage): void {
@@ -617,21 +803,13 @@ class LappyCapReceiver {
             console.log('[Receiver] Seeked to', msg.seekTime);
           }
           this.syncCastMediaSession();
+          this.broadcastStatus(senderId);
         }).catch(err => {
           console.error('[Receiver] Audio load failed:', err);
+          this.setReceiverOverlay('error', 'Playback error', this.nowPlayingTitle || 'Unable to load stream', 'Try another station or reconnect the sender.');
         });
-        // Show station name on TV if provided
-        if (msg.stationName) {
-          this.showStationName(msg.stationName);
-        }
+        this.updateReceiverOverlay();
         this.syncCastMediaSession();
-        // Acknowledge
-        this.castContext?.sendCustomMessage(NAMESPACE, senderId, {
-          type: 'status',
-          playing: true,
-          scene: this.sceneManager.getScene().name,
-          stationName: this.nowPlayingTitle,
-        });
         break;
       }
       case 'scene': {
@@ -641,32 +819,21 @@ class LappyCapReceiver {
           if (this.started) this.sceneManager.start();
         }
         this.syncCastMediaSession();
+        this.updateReceiverOverlay();
+        this.broadcastStatus();
         break;
       }
       case 'pause':
         this.markControlSignal('pause');
-        this.intentionallyPaused = true;
-        this.audioEl.pause();
-        this.syncCastMediaSession();
-        console.log('[Receiver] Paused by sender');
+        this.pausePlayback('sender');
         break;
       case 'resume':
         this.markControlSignal('resume');
-        this.intentionallyPaused = false;
-        this.updatePlaybackForEnvironment();
-        if (!this.isPlaybackSuspended()) {
-          this.audioEl.play().catch(e => console.error('[Receiver] Resume failed:', e));
-        }
-        this.syncCastMediaSession();
-        console.log('[Receiver] Resumed by sender');
+        this.resumePlayback('sender');
         break;
       case 'stop':
         this.markControlSignal('stop');
-        this.intentionallyPaused = true;
-        this.audioEl.pause();
-        this.visualizer.stop();
-        this.clearLockScreenMetadata();
-        console.log('[Receiver] Stopped by sender');
+        this.stopPlayback('sender');
         break;
       case 'next':
         this.sceneManager.next();
@@ -687,6 +854,9 @@ class LappyCapReceiver {
         if (msg.cycleDuration !== undefined) this.sceneManager.setCycleDuration(msg.cycleDuration);
         if (msg.blendDuration !== undefined) this.sceneManager.setBlendDuration(msg.blendDuration);
         if (msg.volume !== undefined) this.audioEl.volume = Math.max(0, Math.min(1, msg.volume));
+        this.syncCastMediaSession();
+        this.updateReceiverOverlay();
+        this.broadcastStatus();
         break;
     }
   }
@@ -736,36 +906,14 @@ class LappyCapReceiver {
     overlay.innerHTML = lines.join('<br>');
   }
 
-  /** Briefly display station name on screen: fade in 0.5s, hold 3s, fade out 1.5s */
-  private showStationName(name: string): void {
-    const el = document.getElementById('station-name')!;
-    if (this.stationNameTimer) clearTimeout(this.stationNameTimer);
-
-    el.textContent = `♪ ${name}`;
-    el.className = 'fade-in';
-
-    this.stationNameTimer = setTimeout(() => {
-      el.className = 'fade-out';
-      // Clean up text after fade-out completes
-      this.stationNameTimer = setTimeout(() => {
-        el.textContent = '';
-        el.className = '';
-      }, 1500);
-    }, 3000);
-  }
-
   /** Standalone mode for browser testing (no Cast device needed) */
   private startStandalone(): void {
-    const status = document.getElementById('status')!;
-    status.innerHTML = 'LappyCap Receiver<br><small>Standalone mode — pick a station</small>';
-
     const defaultStation = defaultPlaybackStation;
     this.nowPlayingTitle = defaultStation.name;
     this.playAudio(defaultStation.url).then(() => {
-      status.classList.add('hidden');
-      this.showStationName(defaultStation.name);
+      this.updateReceiverOverlay();
     }).catch(err => {
-      status.innerHTML = `Error: ${err.message}`;
+      this.setReceiverOverlay('error', 'Playback error', defaultStation.name, err.message);
     });
   }
 }

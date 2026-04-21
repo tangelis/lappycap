@@ -7,36 +7,87 @@
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
       canvas#visualizer { width: 100%; height: 100%; display: block; }
-      #status {
-        position: absolute; top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        color: rgba(255,255,255,0.4);
-        font-size: 24px; font-family: system-ui;
-        text-align: center;
+      #receiver-overlay {
+        position: absolute;
+        left: 20px;
+        bottom: 20px;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: min(46vw, 460px);
+        pointer-events: none;
       }
-      #status.hidden { display: none; }
+      #receiver-status {
+        align-self: flex-start;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(0,0,0,0.45);
+        border: 1px solid rgba(255,255,255,0.14);
+        color: rgba(255,255,255,0.8);
+        font-size: 12px;
+        font-family: system-ui;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      #receiver-card {
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: rgba(4,8,16,0.7);
+        border: 1px solid rgba(255,255,255,0.12);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        box-shadow: 0 16px 48px rgba(0,0,0,0.28);
+      }
+      .receiver-eyebrow {
+        color: rgba(255,255,255,0.45);
+        font-size: 11px;
+        font-family: system-ui;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      #receiver-title {
+        color: rgba(255,255,255,0.96);
+        font-size: 28px;
+        font-family: system-ui;
+        font-weight: 600;
+        line-height: 1.15;
+        text-wrap: balance;
+      }
+      #receiver-meta {
+        margin-top: 8px;
+        color: rgba(255,255,255,0.72);
+        font-size: 14px;
+        font-family: system-ui;
+        line-height: 1.45;
+      }
+      #receiver-tip {
+        color: rgba(255,255,255,0.5);
+        font-size: 12px;
+        font-family: system-ui;
+        line-height: 1.4;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.55);
+      }
+      #receiver-overlay.playing #receiver-status {
+        background: rgba(10,38,54,0.76);
+        border-color: rgba(100,200,255,0.35);
+      }
+      #receiver-overlay.paused #receiver-status,
+      #receiver-overlay.suspended #receiver-status {
+        background: rgba(46,35,12,0.72);
+        border-color: rgba(244,199,91,0.35);
+      }
+      #receiver-overlay.error #receiver-status {
+        background: rgba(60,18,18,0.78);
+        border-color: rgba(255,120,120,0.35);
+      }
       #preset-name {
         position: absolute; top: 16px; left: 20px;
         color: rgba(255,255,255,0.3); font-size: 13px;
         font-family: system-ui; pointer-events: none;
         transition: opacity 2s ease;
       }
-      #station-name {
-        position: absolute; bottom: 40px; left: 50%;
-        transform: translateX(-50%);
-        color: rgba(255,255,255,0.8);
-        font-size: 20px;
-        font-family: system-ui;
-        font-weight: 300;
-        letter-spacing: 1px;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.5s ease;
-        text-shadow: 0 2px 12px rgba(0,0,0,0.6);
-        white-space: nowrap;
-      }
-      #station-name.fade-in { opacity: 1; transition: opacity 0.5s ease; }
-      #station-name.fade-out { opacity: 0; transition: opacity 1.5s ease; }
       #debug-overlay {
         display: none;
         position: absolute; top: 16px; right: 20px;
@@ -51,9 +102,16 @@
   </head>
   <body>
     <canvas id="visualizer"></canvas>
-    <div id="status">LappyCap<br><small>Waiting for sender...</small></div>
+    <div id="receiver-overlay" class="waiting">
+      <div id="receiver-status">Waiting for sender</div>
+      <div id="receiver-card">
+        <div class="receiver-eyebrow">LappyCap</div>
+        <div id="receiver-title">LappyCap is ready</div>
+        <div id="receiver-meta">Start playback from the web app or the phone remote to light up the TV.</div>
+      </div>
+      <div id="receiver-tip">Use the LappyCap remote or your Cast controls to return here.</div>
+    </div>
     <div id="preset-name"></div>
-    <div id="station-name"></div>
     <div id="debug-overlay"></div>
     <audio id="audio-element" class="castMediaElement"></audio>
     <script type="module" src="/src/receiver.ts"></script>

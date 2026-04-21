@@ -57,7 +57,7 @@ It features a **scene system** — curated collections of visual presets that yo
 
 🖥️ **Fullscreen Mode** — Controls auto-hide after 4 seconds, reappear on mouse movement
 
-📺 **Chromecast** — Full Cast support: launch from Chrome on desktop, control from Android phone via `/remote.html`, visualizer runs natively on Chromecast/Android TV
+📺 **Chromecast** — Full Cast support with a persistent Cast session chip on desktop, richer TV receiver overlays, and phone control via `/remote.html`; visuals run natively on Chromecast/Android TV
 
 <p align="center">
   <img src="screenshots/02-preset-controls.png" width="80%" alt="LappyCap controls overlay" />
@@ -166,12 +166,12 @@ The test suite uses Puppeteer with headless Chromium to verify:
 
 ## Roadmap
 
-- [ ] 📺 Chromecast support (Cast sender + custom receiver)
+- [x] 📺 Chromecast support (Cast sender + custom receiver)
 - [ ] 🎭 More scenes (Late Night Drive, Deep Focus, Dance Floor)
 - [ ] 📝 Custom scene editor (YAML-based preset files)
 - [ ] 🎚️ BPM detection + auto scene matching
 - [ ] 🎨 User preset favorites / blacklist
-- [ ] 📱 Mobile-optimized touch controls
+- [x] 📱 Mobile-optimized touch controls
 
 ## Credits
 

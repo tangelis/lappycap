@@ -523,7 +523,7 @@
 
   <script>
     // ─── Data ───────────────────────────────────────────────
-    const APP_ID = '8315CD49';
+    const APP_ID = '97CE3127';
     const NAMESPACE = 'urn:x-cast:com.lappycap';
 
     const R2_BASE = 'https://pub-71c7000d74e7419593b3a776ccd3af7e.r2.dev';
@@ -575,9 +575,11 @@
     let isConnected = false;
     let shuffleOn = false;
     let isPaused = false;
+    let isStopped = false;
     let currentStation;
     let currentScene = SCENES[0];
     let keepaliveTimer = null;
+    let receiverMessageSession = null;
 
     // ─── DOM refs ───────────────────────────────────────────
     const $ = (id) => document.getElementById(id);
@@ -686,9 +688,12 @@
     }
 
     function onConnected() {
-      isConnected = true;
       const ctx = cast.framework.CastContext.getInstance();
       const session = ctx.getCurrentSession();
+      if (!session) return;
+      const isNewSession = session !== receiverMessageSession;
+      const wasConnected = isConnected;
+      isConnected = true;
       const name = session?.getCastDevice()?.friendlyName || 'Chromecast';
 
       statusDot.className = 'status-dot connected';
@@ -696,21 +701,26 @@
       statusText.textContent = `Casting to: ${name}`;
       controlsWrap.classList.remove('controls-disabled');
 
-      // Add message listener for receiver status updates
-      session.addMessageListener(NAMESPACE, (ns, msgStr) => {
-        try {
-          const msg = JSON.parse(msgStr);
-          console.log('[Remote] Receiver says:', msg);
-          handleReceiverMessage(msg);
-        } catch (e) {
-          console.log('[Remote] Receiver raw:', msgStr);
-        }
-      });
+      if (isNewSession) {
+        receiverMessageSession = session;
+        // Add one receiver listener per session so reconnect events do not duplicate updates.
+        session.addMessageListener(NAMESPACE, (ns, msgStr) => {
+          try {
+            const msg = JSON.parse(msgStr);
+            console.log('[Remote] Receiver says:', msg);
+            handleReceiverMessage(msg);
+          } catch (e) {
+            console.log('[Remote] Receiver raw:', msgStr);
+          }
+        });
+      }
 
       // Start keepalive
       startKeepalive();
 
-      toast('Connected to ' + name);
+      if (!wasConnected || isNewSession) {
+        toast('Connected to ' + name);
+      }
     }
 
     function onDisconnected() {
@@ -720,6 +730,7 @@
       statusText.textContent = 'Disconnected';
       controlsWrap.classList.add('controls-disabled');
       nowPlaying.style.display = 'none';
+      receiverMessageSession = null;
       stopKeepalive();
       toast('Disconnected');
     }
@@ -729,10 +740,27 @@
       if (msg.stationName) {
         npStation.textContent = msg.stationName;
       }
-      if (msg.sceneName) {
-        npScene.textContent = msg.sceneName;
+      const sceneName = msg.sceneName || msg.scene;
+      if (sceneName) {
+        npScene.textContent = sceneName;
       }
-      if (msg.stationName || msg.sceneName) {
+      if (msg.stopped) {
+        isPaused = false;
+        isStopped = true;
+        const btn = $('pauseBtn');
+        btn.innerHTML = '▶ Start';
+        btn.classList.add('btn-accent');
+        nowPlaying.style.display = 'none';
+        return;
+      }
+      if (typeof msg.playing === 'boolean') {
+        isPaused = !msg.playing;
+        isStopped = false;
+        const btn = $('pauseBtn');
+        btn.innerHTML = isPaused ? '▶ Resume' : '⏸ Pause';
+        btn.classList.toggle('btn-accent', isPaused);
+      }
+      if (msg.stationName || sceneName) {
         nowPlaying.style.display = 'block';
       }
     }
@@ -817,6 +845,10 @@
 
     function togglePauseRemote() {
       const btn = $('pauseBtn');
+      if (isStopped) {
+        onStationChange();
+        return;
+      }
       if (isPaused) {
         isPaused = false;
         sendMsg({ type: 'resume' });
@@ -834,9 +866,10 @@
 
     function stopPlaybackRemote() {
       isPaused = true;
+      isStopped = true;
       sendMsg({ type: 'stop' });
       const btn = $('pauseBtn');
-      btn.innerHTML = '▶ Resume';
+      btn.innerHTML = '▶ Start';
       btn.classList.add('btn-accent');
       toast('⏹ Stopped on TV');
     }
@@ -844,6 +877,7 @@
     // Reset pause state when a new station is loaded
     function resetPauseState() {
       isPaused = false;
+      isStopped = false;
       const btn = $('pauseBtn');
       if (btn) {
         btn.innerHTML = '⏸ Pause';
@@ -874,18 +908,8 @@
       }
     }
 
-    // If the remote page is hidden/closed, stop playback so TV audio doesn't orphan.
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden' && isConnected) {
-        sendMsg({ type: 'stop' });
-      }
-    });
-
-    window.addEventListener('pagehide', () => {
-      if (isConnected) {
-        sendMsg({ type: 'stop' });
-      }
-    });
+    // Keep the receiver running when the remote backgrounds; stopping playback should be
+    // an explicit action so users can switch apps without unexpectedly killing the TV session.
 
     // ─── Toast ──────────────────────────────────────────────
     let toastTimer = null;

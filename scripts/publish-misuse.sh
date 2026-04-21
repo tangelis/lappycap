@@ -40,6 +40,10 @@ PRUNE_UNLINKED="${HERENOW_PRUNE_UNLINKED_PUBLISHES:-${HERENOW_DELETE_PREVIOUS_PU
 echo "Building with base /${LOCATION}/ ..." >&2
 npm run build -- --base="/${LOCATION}/"
 
+# Mounted subpaths are resolved as real paths on the publish, so the Vite build
+# also needs a duplicate copy under dist/${LOCATION}/ for misuse.net/lappycap/.
+bash "$ROOT/scripts/nest-vite-dist-for-here.sh" "$ROOT/dist" "$LOCATION"
+
 echo "Uploading dist/ to here.now ..." >&2
 SITE_URL="$("$PUBLISH_SH" "$ROOT/dist" --client "cursor/lappycap" | head -1)"
 if [[ "$SITE_URL" != https://*.here.now* ]]; then

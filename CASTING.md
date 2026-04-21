@@ -13,6 +13,7 @@ LappyCap streams SomaFM radio through Butterchurn visualizations on your Chromec
 
 **Controls:**
 - **⏸ Pause button** — between the ◀ and ▶ preset buttons. Pauses/resumes audio on both desktop and Chromecast.
+- **Cast session chip** — stays visible even when the main controls auto-hide, so you can always tell which TV is active
 - **Space** — keyboard shortcut for pause/resume
 - **C** — copy shareable link with current scene + station
 
@@ -36,7 +37,7 @@ Open the **Remote Control** page in Chrome on your Android phone:
    - **Volume slider** — control audio volume
    - **Cycle & blend timing** — adjust preset rotation speed
 
-> The remote page is mobile-optimized with big touch targets and a dark theme.
+> The remote page is mobile-optimized with big touch targets and a dark theme. Backgrounding the remote no longer stops TV playback automatically; use the explicit stop control when you want the session to end.
 
 ### Pro tip: Add to Home Screen
 
@@ -74,11 +75,13 @@ LappyCap is designed to run indefinitely on Android TV without timing out. Three
 
 > If your TV still sleeps after ~20 minutes, check: **Settings → Device Preferences → Screen saver** and set the sleep timer to "Never" or a longer interval. The wake lock works at the browser/Cast layer; TV-level sleep settings override it on some models.
 
+The receiver also keeps a visible on-screen overlay for waiting, paused, reconnecting, and active playback states so Android TV never looks "dead" while audio is still active.
+
 ---
 
 ## 🔧 Technical Details
 
-- **Cast App ID:** `8315CD49`
+- **Cast App ID:** `97CE3127`
 - **Custom namespace:** `urn:x-cast:com.lappycap`
 - **Receiver:** Custom Web Receiver (deployed via GitHub Pages)
 - **Sender SDK:** CAF (Cast Application Framework) JavaScript SDK

@@ -5,7 +5,7 @@
  * both audio and video Cast devices (Chromecast, Google TV, etc.).
  */
 
-const APP_ID = '8315CD49';
+const APP_ID = '97CE3127';
 const NAMESPACE = 'urn:x-cast:com.lappycap';
 
 // CAF sender SDK types
@@ -45,9 +45,19 @@ interface CastContext {
 
 interface CastSession {
   sendMessage(namespace: string, message: object): Promise<void>;
+  addMessageListener(namespace: string, handler: (namespace: string, message: unknown) => void): void;
   getSessionId(): string;
   getCastDevice(): { friendlyName: string };
 }
+
+export type CastStatusMessage = {
+  type: 'status';
+  playing?: boolean;
+  stopped?: boolean;
+  sceneName?: string;
+  scene?: string;
+  stationName?: string;
+};
 
 export type CastMessage =
   | { type: 'load'; audioUrl: string; sceneName?: string; stationName?: string; volume?: number; seekTime?: number }
@@ -59,9 +69,11 @@ export class CastSender {
   private available = false;
   private connected = false;
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+  private receiverStatusSessionId: string | null = null;
 
   onAvailabilityChanged?: (available: boolean) => void;
   onSessionChanged?: (connected: boolean, deviceName?: string) => void;
+  onMessage?: (message: CastStatusMessage) => void;
 
   constructor() {
     this.loadSdk();
@@ -115,8 +127,10 @@ export class CastSender {
         if (this.connected !== wasConnected) {
           if (this.connected) {
             this.startKeepalive();
+            this.attachReceiverStatusListener();
           } else {
             this.stopKeepalive();
+            this.receiverStatusSessionId = null;
           }
           // Extract device name from active session
           const deviceName = this.connected ? this.getDeviceName() : undefined;
@@ -150,6 +164,25 @@ export class CastSender {
     session.sendMessage(NAMESPACE, message).catch((err) => {
       console.error('[Cast] Send error:', err);
     });
+  }
+
+  private attachReceiverStatusListener(): void {
+    const context = cast.framework.CastContext.getInstance();
+    const session = context.getCurrentSession();
+    if (!session) return;
+    const sessionId = session.getSessionId();
+    if (this.receiverStatusSessionId === sessionId) return;
+    session.addMessageListener(NAMESPACE, (_namespace, message) => {
+      try {
+        const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+        if (parsed && typeof parsed === 'object' && (parsed as { type?: string }).type === 'status') {
+          this.onMessage?.(parsed as CastStatusMessage);
+        }
+      } catch (err) {
+        console.warn('[Cast] Failed to parse receiver status:', err);
+      }
+    });
+    this.receiverStatusSessionId = sessionId;
   }
 
   get isConnected(): boolean {
