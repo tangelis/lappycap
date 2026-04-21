@@ -3,7 +3,7 @@ import { Visualizer } from './visualizer';
 import { SceneManager } from './scene-manager';
 import { loadPresetsForScene } from './preset-loader';
 import { scenes } from './scenes';
-import { radioStations, djSets } from './radio-stations';
+import { radioStations, djSets, defaultPlaybackStation, findStationByUrl, findStationByName } from './radio-stations';
 import { CastSender } from './cast-sender';
 import { Playlist, formatDuration } from './playlist';
 import type { PlaylistTrack } from './playlist';
@@ -102,6 +102,7 @@ class LappyCap {
       // Populate selectors
       this.populateSceneSelector();
       this.populateRadioSelector();
+      (document.getElementById('radio-select') as HTMLSelectElement).value = defaultPlaybackStation.url;
 
       // Apply URL params
       const urlParams = new URLSearchParams(window.location.search);
@@ -128,8 +129,8 @@ class LappyCap {
         // Wire URL audio into the analyser before Butterchurn connects so the first frame has real spectrum data.
         const stationParam = urlParams.get('station');
         const station = stationParam
-          ? (radioStations.find(r => r.name.toLowerCase() === stationParam.toLowerCase()) ?? radioStations[0])
-          : radioStations[0];
+          ? (findStationByName(stationParam) ?? defaultPlaybackStation)
+          : defaultPlaybackStation;
         await this.playAudioURL(station.url);
         (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
         await this.startVisualizer();
@@ -268,8 +269,9 @@ class LappyCap {
       e.stopPropagation();
       this.playingFromPlaylist = false;
       this.renderPlaylistTracks();
-      const idx = Math.floor(Math.random() * radioStations.length);
-      const station = radioStations[idx];
+      const allStations = [...djSets, ...radioStations];
+      const idx = Math.floor(Math.random() * allStations.length);
+      const station = allStations[idx];
       (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
       await this.playAudioURL(station.url);
     });
@@ -389,8 +391,9 @@ class LappyCap {
         case 'r': {
           this.playingFromPlaylist = false;
           this.renderPlaylistTracks();
-          const idx = Math.floor(Math.random() * radioStations.length);
-          const station = radioStations[idx];
+          const allStations = [...djSets, ...radioStations];
+          const idx = Math.floor(Math.random() * allStations.length);
+          const station = allStations[idx];
           (document.getElementById('radio-select') as HTMLSelectElement).value = station.url;
           this.playAudioURL(station.url).catch(err => console.error('Radio error:', err));
           break;
@@ -448,7 +451,7 @@ class LappyCap {
     const select = document.getElementById('radio-select') as HTMLSelectElement;
 
     // Find the station name from the currently selected option
-    const station = radioStations.find(s => s.url === select.value);
+    const station = findStationByUrl(select.value);
     if (station) {
       nameEl.textContent = station.name;
       indicator.textContent = this.isPaused ? '⏸' : '▶';
@@ -495,7 +498,7 @@ class LappyCap {
     // Clear existing params and set current state
     url.search = '';
     url.searchParams.set('scene', this.sceneManager.getScene().name);
-    const station = radioStations.find(s => s.url === this.currentAudioUrl);
+    const station = findStationByUrl(this.currentAudioUrl);
     if (station) {
       url.searchParams.set('station', station.name);
     }
@@ -521,7 +524,7 @@ class LappyCap {
   /** Get the currently-selected station name (or undefined for custom URLs) */
   private getCurrentStationName(): string | undefined {
     const select = document.getElementById('radio-select') as HTMLSelectElement;
-    const station = radioStations.find(s => s.url === select.value);
+    const station = findStationByUrl(select.value);
     return station?.name;
   }
 

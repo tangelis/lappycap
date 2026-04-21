@@ -10,7 +10,7 @@ import { Visualizer } from './visualizer';
 import { SceneManager } from './scene-manager';
 import { loadPresetsForScene } from './preset-loader';
 import { scenes } from './scenes';
-import { radioStations } from './radio-stations';
+import { defaultPlaybackStation } from './radio-stations';
 import type { Scene } from './types';
 
 // Cast Receiver SDK types (loaded via <script> from Google CDN at runtime)
@@ -486,7 +486,7 @@ class LappyCapReceiver {
     this.markControlSignal('cast-ready');
     this.startControlWatchdog();
 
-    // Auto-start with Groove Salad immediately. When the sender's 'load'
+    // Auto-start with default stream immediately. When the sender's 'load'
     // message arrives (usually within 1-2s), it overrides with the current audio.
     this.startStandalone();
   }
@@ -645,8 +645,7 @@ class LappyCapReceiver {
     const status = document.getElementById('status')!;
     status.innerHTML = 'LappyCap Receiver<br><small>Standalone mode — pick a station</small>';
 
-    // Auto-start with Groove Salad for testing
-    const defaultStation = radioStations[0];
+    const defaultStation = defaultPlaybackStation;
     this.playAudio(defaultStation.url).then(() => {
       status.classList.add('hidden');
       this.showStationName(defaultStation.name);

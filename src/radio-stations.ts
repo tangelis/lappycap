@@ -158,3 +158,19 @@ export const radioStations: RadioStation[] = [
     homepage: 'https://somafm.com/vaporwaves/',
   },
 ];
+
+/** First-click / Cast-receiver default stream (DJ set on R2 for CORS + visuals). */
+export const defaultPlaybackStation: RadioStation =
+  djSets.find((s) => /REC225/i.test(s.name)) ?? djSets[0] ?? radioStations[0];
+
+export function findStationByUrl(url: string): RadioStation | undefined {
+  return djSets.find((s) => s.url === url) ?? radioStations.find((s) => s.url === url);
+}
+
+export function findStationByName(name: string): RadioStation | undefined {
+  const lower = name.trim().toLowerCase();
+  return (
+    radioStations.find((r) => r.name.toLowerCase() === lower) ??
+    djSets.find((r) => r.name.toLowerCase() === lower)
+  );
+}

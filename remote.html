@@ -510,7 +510,18 @@
     const APP_ID = '8315CD49';
     const NAMESPACE = 'urn:x-cast:com.lappycap';
 
-    const STATIONS = [
+    const R2_BASE = 'https://pub-71c7000d74e7419593b3a776ccd3af7e.r2.dev';
+    const DJ_SETS = [
+      { name: 'XDJ-AZ — REC214', genre: 'DJ Set / 2h24m', url: `${R2_BASE}/sets/REC214.mp3` },
+      { name: 'XDJ-AZ — REC218', genre: 'DJ Set / 2h59m', url: `${R2_BASE}/sets/REC218.mp3` },
+      { name: 'XDJ-AZ — REC222', genre: 'DJ Set / 2h43m', url: `${R2_BASE}/sets/REC222.mp3` },
+      { name: 'XDJ-AZ — REC225', genre: 'DJ Set / 2h33m', url: `${R2_BASE}/sets/REC225.mp3` },
+      { name: 'XDJ-AZ — REC230', genre: 'DJ Set / 2h28m', url: `${R2_BASE}/sets/REC230.mp3` },
+      { name: 'XDJ-AZ — REC234', genre: 'DJ Set / 1h30m', url: `${R2_BASE}/sets/REC234.mp3` },
+      { name: 'XDJ-AZ — REC235', genre: 'DJ Set / 1h37m', url: `${R2_BASE}/sets/REC235.mp3` },
+      { name: 'XDJ-AZ — REC236', genre: 'DJ Set / 2h01m', url: `${R2_BASE}/sets/REC236.mp3` },
+    ];
+    const RADIO_STATIONS = [
       { name: 'Groove Salad', genre: 'Ambient / Chill', url: 'https://ice1.somafm.com/groovesalad-128-mp3' },
       { name: 'Groove Salad Classic', genre: 'Ambient / Downtempo', url: 'https://ice1.somafm.com/gsclassic-128-mp3' },
       { name: 'Lush', genre: 'Electronic / Mellow', url: 'https://ice1.somafm.com/lush-128-mp3' },
@@ -528,6 +539,7 @@
       { name: 'Illinois Street Lounge', genre: 'Lounge / Exotica', url: 'https://ice1.somafm.com/illstreet-128-mp3' },
       { name: 'Vaporwaves', genre: 'Vaporwave / Future Funk', url: 'https://ice1.somafm.com/vaporwaves-128-mp3' },
     ];
+    const STATION_LIST = [...DJ_SETS, ...RADIO_STATIONS];
 
     const SCENES = [
       'Sunday Morning Vibes',
@@ -538,13 +550,16 @@
       'The Dark Forge',
       'Psych Ward',
       'Ocean Dreams',
+      'Lava Lounge',
+      'Slow Burn',
+      'Silk Dreams',
     ];
 
     // ─── State ──────────────────────────────────────────────
     let isConnected = false;
     let shuffleOn = false;
     let isPaused = false;
-    let currentStation = STATIONS[0];
+    let currentStation;
     let currentScene = SCENES[0];
     let keepaliveTimer = null;
 
@@ -564,12 +579,28 @@
     const shuffleBtn = $('shuffleBtn');
 
     // ─── Populate selects ───────────────────────────────────
-    STATIONS.forEach((s, i) => {
+    let stationIdx = 0;
+    const djGroup = document.createElement('optgroup');
+    djGroup.label = 'DJ Sets';
+    DJ_SETS.forEach((s) => {
       const opt = document.createElement('option');
-      opt.value = i;
+      opt.value = String(stationIdx++);
       opt.textContent = `${s.name} — ${s.genre}`;
-      stationSelect.appendChild(opt);
+      djGroup.appendChild(opt);
     });
+    stationSelect.appendChild(djGroup);
+    const radioGroup = document.createElement('optgroup');
+    radioGroup.label = 'Radio Stations';
+    RADIO_STATIONS.forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = String(stationIdx++);
+      opt.textContent = `${s.name} — ${s.genre}`;
+      radioGroup.appendChild(opt);
+    });
+    stationSelect.appendChild(radioGroup);
+    const defaultStationIdx = STATION_LIST.findIndex((s) => /REC225/i.test(s.name));
+    stationSelect.value = String(defaultStationIdx >= 0 ? defaultStationIdx : 0);
+    currentStation = STATION_LIST[parseInt(stationSelect.value, 10)];
 
     SCENES.forEach((s, i) => {
       const opt = document.createElement('option');
@@ -724,8 +755,8 @@
     }
 
     function onStationChange() {
-      const idx = parseInt(stationSelect.value);
-      currentStation = STATIONS[idx];
+      const idx = parseInt(stationSelect.value, 10);
+      currentStation = STATION_LIST[idx];
       currentScene = SCENES[parseInt(sceneSelect.value)];
 
       const vol = parseInt(volumeSlider.value) / 100;
@@ -756,8 +787,8 @@
     }
 
     function randomStation() {
-      const idx = Math.floor(Math.random() * STATIONS.length);
-      stationSelect.value = idx;
+      const idx = Math.floor(Math.random() * STATION_LIST.length);
+      stationSelect.value = String(idx);
       onStationChange();
     }
 
