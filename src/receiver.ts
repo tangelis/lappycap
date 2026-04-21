@@ -69,7 +69,7 @@ interface SceneMessage {
 }
 
 interface ControlMessage {
-  type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume' | 'debug' | 'ping';
+  type: 'next' | 'prev' | 'shuffle' | 'pause' | 'resume' | 'stop' | 'debug' | 'ping';
 }
 
 interface SettingsMessage {
@@ -84,6 +84,7 @@ type ReceiverMessage = LoadMessage | SceneMessage | ControlMessage | SettingsMes
 const NAMESPACE = 'urn:x-cast:com.lappycap';
 
 class LappyCapReceiver {
+  private static readonly CONTROL_SIGNAL_TIMEOUT_MS = 90_000;
   private visualizer: Visualizer;
   private sceneManager: SceneManager;
   private audioContext: AudioContext | null = null;
@@ -107,6 +108,10 @@ class LappyCapReceiver {
   private castStandby = false;
   /** All Cast senders disconnected — pause until a new `load` or sender reconnects. */
   private suspendedByNoSenders = false;
+  /** No control/keepalive messages received recently from sender. */
+  private suspendedBySignalTimeout = false;
+  private lastControlSignalAt = Date.now();
+  private controlWatchdog: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
@@ -134,9 +139,35 @@ class LappyCapReceiver {
   /** True when the TV / tab context should not keep audio or the render loop running. */
   private isPlaybackSuspended(): boolean {
     if (this.castContext) {
-      return this.suspendedByNoSenders || !this.castInputVisible || this.castStandby;
+      return this.suspendedByNoSenders || this.suspendedBySignalTimeout || !this.castInputVisible || this.castStandby;
     }
     return document.hidden;
+  }
+
+  private markControlSignal(source: string): void {
+    this.lastControlSignalAt = Date.now();
+    if (this.suspendedBySignalTimeout) {
+      this.suspendedBySignalTimeout = false;
+      console.log(`[Receiver] Control signal restored via ${source}`);
+      this.updatePlaybackForEnvironment();
+    }
+  }
+
+  private startControlWatchdog(): void {
+    if (this.controlWatchdog) clearInterval(this.controlWatchdog);
+    this.controlWatchdog = setInterval(() => {
+      if (!this.castContext || !this.started || !this.currentAudioUrl) return;
+      if (this.intentionallyPaused) return;
+
+      const elapsed = Date.now() - this.lastControlSignalAt;
+      if (elapsed > LappyCapReceiver.CONTROL_SIGNAL_TIMEOUT_MS) {
+        if (!this.suspendedBySignalTimeout) {
+          this.suspendedBySignalTimeout = true;
+          console.warn(`[Receiver] No control signal for ${Math.round(elapsed / 1000)}s; suspending playback`);
+          this.updatePlaybackForEnvironment();
+        }
+      }
+    }, 10_000);
   }
 
   /**
@@ -153,7 +184,7 @@ class LappyCapReceiver {
       }
       this.visualizer.stop();
       const why = this.castContext
-        ? `visible=${this.castInputVisible} standby=${this.castStandby} noSenders=${this.suspendedByNoSenders}`
+        ? `visible=${this.castInputVisible} standby=${this.castStandby} noSenders=${this.suspendedByNoSenders} signalTimeout=${this.suspendedBySignalTimeout}`
         : `document.hidden=${document.hidden}`;
       console.log(`[Receiver] Playback suspended (${why})`);
       return;
@@ -386,6 +417,7 @@ class LappyCapReceiver {
 
     this.castContext.addCustomMessageListener(NAMESPACE, (event) => {
       console.log('[Receiver] Message:', event.data);
+      this.markControlSignal((event.data as { type?: string }).type || 'message');
       this.handleMessage(event.senderId, event.data as ReceiverMessage);
     });
 
@@ -394,6 +426,7 @@ class LappyCapReceiver {
     this.castContext.addEventListener(
       cast.framework.system.EventType.SENDER_DISCONNECTED,
       () => {
+        this.markControlSignal('sender-disconnected');
         const remaining = this.castContext!.getSenders().length;
         console.log(`[Receiver] Sender disconnected — ${remaining} sender(s) remain`);
         if (remaining === 0) {
@@ -404,6 +437,7 @@ class LappyCapReceiver {
     );
 
     this.castContext.addEventListener(cast.framework.system.EventType.SENDER_CONNECTED, () => {
+      this.markControlSignal('sender-connected');
       this.suspendedByNoSenders = false;
       this.updatePlaybackForEnvironment();
     });
@@ -449,6 +483,8 @@ class LappyCapReceiver {
       maxInactivity: 3600, // 1 hour — don't disconnect senders that go quiet
     });
     console.log('[Receiver] Cast receiver started (idle timeout disabled, maxInactivity=3600)');
+    this.markControlSignal('cast-ready');
+    this.startControlWatchdog();
 
     // Auto-start with Groove Salad immediately. When the sender's 'load'
     // message arrives (usually within 1-2s), it overrides with the current audio.
@@ -497,14 +533,26 @@ class LappyCapReceiver {
         break;
       }
       case 'pause':
+        this.markControlSignal('pause');
         this.intentionallyPaused = true;
         this.audioEl.pause();
         console.log('[Receiver] Paused by sender');
         break;
       case 'resume':
+        this.markControlSignal('resume');
         this.intentionallyPaused = false;
-        this.audioEl.play().catch(e => console.error('[Receiver] Resume failed:', e));
+        this.updatePlaybackForEnvironment();
+        if (!this.isPlaybackSuspended()) {
+          this.audioEl.play().catch(e => console.error('[Receiver] Resume failed:', e));
+        }
         console.log('[Receiver] Resumed by sender');
+        break;
+      case 'stop':
+        this.markControlSignal('stop');
+        this.intentionallyPaused = true;
+        this.audioEl.pause();
+        this.visualizer.stop();
+        console.log('[Receiver] Stopped by sender');
         break;
       case 'next':
         this.sceneManager.next();

@@ -453,6 +453,9 @@
       <button class="btn btn-full" id="pauseBtn" onclick="togglePauseRemote()" style="font-size:20px; min-height:56px;">
         ⏸ Pause
       </button>
+      <button class="btn btn-full btn-accent" onclick="stopPlaybackRemote()" style="margin-top: 10px;">
+        ⏹ Stop on TV
+      </button>
     </div>
 
     <!-- Preset controls -->
@@ -782,6 +785,15 @@
       }
     }
 
+    function stopPlaybackRemote() {
+      isPaused = true;
+      sendMsg({ type: 'stop' });
+      const btn = $('pauseBtn');
+      btn.innerHTML = '▶ Resume';
+      btn.classList.add('btn-accent');
+      toast('⏹ Stopped on TV');
+    }
+
     // Reset pause state when a new station is loaded
     function resetPauseState() {
       isPaused = false;
@@ -814,6 +826,19 @@
         toast('Cast unavailable');
       }
     }
+
+    // If the remote page is hidden/closed, stop playback so TV audio doesn't orphan.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && isConnected) {
+        sendMsg({ type: 'stop' });
+      }
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (isConnected) {
+        sendMsg({ type: 'stop' });
+      }
+    });
 
     // ─── Toast ──────────────────────────────────────────────
     let toastTimer = null;
