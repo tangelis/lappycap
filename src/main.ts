@@ -104,6 +104,9 @@ class LappyCap {
       this.populateRadioSelector();
       (document.getElementById('radio-select') as HTMLSelectElement).value = defaultPlaybackStation.url;
 
+      // Apply Branding
+      this.applyBrandingFromURL(urlParams);
+
       // Apply URL params
       const urlParams = new URLSearchParams(window.location.search);
       const sceneParam = urlParams.get('scene');
@@ -1169,6 +1172,32 @@ class LappyCap {
     // Show seek bar only for finite-duration sources (DJ sets, not live radio)
     const isSeekable = isFinite(audioEl.duration) && audioEl.duration > 0;
     seekBar.classList.toggle('visible', isSeekable);
+  }
+
+  /** Apply branding overlay from URL parameters */
+  private applyBrandingFromURL(params: URLSearchParams): void {
+    const brandText = params.get('brandText');
+    const brandLogo = params.get('brandLogo');
+
+    if (brandText || brandLogo) {
+      const overlay = document.getElementById('branding-overlay')!;
+      const textEl = document.getElementById('branding-text')!;
+      const logoEl = document.getElementById('branding-logo') as HTMLImageElement;
+
+      if (brandText) {
+        textEl.textContent = brandText;
+      }
+      if (brandLogo) {
+        logoEl.src = brandLogo;
+        logoEl.style.display = 'block';
+      }
+
+      overlay.classList.add('visible');
+      // Adjust preset name position to not overlap
+      const presetName = document.getElementById('preset-name')!;
+      presetName.style.top = 'auto';
+      presetName.style.bottom = '80px'; // Move to bottom-left area
+    }
   }
 }
 

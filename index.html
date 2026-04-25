@@ -178,6 +178,33 @@
         letter-spacing: 1px;
       }
 
+      /* ── Branding Overlay ── */
+      #branding-overlay {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 5;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 1s ease;
+      }
+      #branding-overlay.visible { opacity: 0.8; }
+      #branding-logo {
+        max-width: 150px;
+        max-height: 80px;
+        filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+      }
+      #branding-text {
+        color: #fff;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-top: 4px;
+        text-shadow: 0 0 10px rgba(0,0,0,0.8);
+      }
+
       #preset-name {
         position: absolute; top: 16px; left: 20px;
         color: rgba(255,255,255,0.5); font-size: 13px;
@@ -524,6 +551,10 @@
   <body>
     <div id="app">
       <canvas id="visualizer"></canvas>
+      <div id="branding-overlay">
+        <img id="branding-logo" src="" style="display:none" />
+        <div id="branding-text"></div>
+      </div>
       <div id="loading">Loading LappyCap...</div>
       <div id="toast"></div>
       <div id="preset-name"></div>
