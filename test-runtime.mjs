@@ -4,7 +4,7 @@
 
 import puppeteer from 'puppeteer-core';
 
-const CHROMIUM = '/usr/bin/chromium-browser';
+const CHROMIUM = process.env.CHROMIUM || '/usr/bin/chromium';
 const URL = process.env.TEST_URL || 'http://127.0.0.1:5176';
 const TIMEOUT = 20000;
 
